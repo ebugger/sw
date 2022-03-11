@@ -150,13 +150,23 @@ ILayer *LayerFactory::deserializeFrom(WisdomContainerEntry *entry)
 
 }
 
+/**
+ * @brief 
+ * 
+ * @tparam D 是两组pair (ILayer. layer) (Iocnv, Conv)类似的
+ */
 template <class D>
 class BasePrivDiamondMap
 {
 public:
+    /**
+     * @brief 添加基类中的实现，比如layer中共同的名字， 输入/输出 tensor列表，输入输出的名字符号等。
+     * 
+     * @param p 
+     */
     static void insert(D p)
     {
-        s_base_priv_diamond_map[p.base().priv()] = p;
+        s_base_priv_diamond_map[p.base().priv()] = p;  //相当于创建了pair(layer, [(ILayer. layer) (Iocnv, Conv)])
     }
     static D find(typename D::BasePrivType *base_priv)
     {
@@ -171,7 +181,13 @@ protected:
     static std::map<typename D::BasePrivType *, D> s_base_priv_diamond_map;
 };
 
-
+/**
+ * @brief 在s_base_priv_diamond_map里通过layer找到[(ILayer. layer) (Iocnv, Conv)]然后返回派生类中(Iocnv, Conv)的实例Conv
+ * 
+ * @tparam D 
+ * @param base_priv 
+ * @return D::DerivedPrivType* 
+ */
 template <class D>
 typename D::DerivedPrivType * LayerFactory::derivedPriv(typename D::BasePrivType *base_priv)
 {
@@ -209,7 +225,7 @@ typename D::BaseInterfaceType * LayerFactory::deserializeLayer(WisdomContainerEn
     return conv.base().i();
 }
 
-//!
+//! When a base class pointer or reference is converted to a derived class pointer
 //! Factories implement a poor-man's replacement for dynamic (priv down) casting.
 //! MISRA's ok with legit uses of dynamic_cast but we've decided to avoid RTTI, so...
 //!
@@ -247,6 +263,28 @@ ILayer *LayerFactory::self(void *s)
     return f->second;
 }
 
+/**
+ * @brief 申请空间，创建继承的两对pair， 并且添加到整体diamond里面， 然后更新layer factory
+ * 
+ *
+
+ * @param network 
+ * @param name 
+ * @param input 
+ * @param output 
+ * @param numOutputMaps 
+ * @param paddingValue 
+ * @param kernelSize 
+ * @param tlPadding 
+ * @param brPadding 
+ * @param stride 
+ * @param dilation 
+ * @param kernelWeights 
+ * @param biasWeights 
+ * @param biasMode 
+ * @param numGroups 
+ * @return ConvolutionLayerDiamond 
+ */
 ConvolutionLayerDiamond
 LayerFactory::newConvolutionLayer(INetwork * network,
                                   const std::string & name,
@@ -273,8 +311,13 @@ LayerFactory::newConvolutionLayer(INetwork * network,
                                                     kernelSize, tlPadding, brPadding, stride, dilation,
                                                     kernelWeights, biasWeights, biasMode, numGroups);
     base_i = derived_i = derived_priv;
+    //实际就是创建两组pair， 一组对应基类(Ilayer*, layer*)， 一组对应派生类(Iconv*,Conv*)，
     ConvolutionLayerDiamond d(base_i, base_priv, derived_i, derived_priv);
+    //添加了pair(layer*, [(ILayer*. layer*) (Iocnv*, Conv*)])
     BasePrivDiamondMap<ConvolutionLayerDiamond>::insert( d );
+    /*为啥要只把基类插进去到factory里面？
+    s_priv和s_self都是一个包含双向map的实例，通过一个成员能找到另外一个成员
+    */
     s_priv.insert(base_i, base_priv);
     s_self.insert(base_i, base_i);
     return d;

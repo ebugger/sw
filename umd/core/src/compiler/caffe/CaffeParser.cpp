@@ -875,6 +875,11 @@ typedef ILayer*(*LayerParseFn)(INetwork *,
 
 typedef std::map<std::string, LayerParseFn> LayerParseFnMap;
 
+/**
+ * @brief value_type是map里面的pair，下面的是手动更新的，相当于手动建立了一个map，
+ * 基本元素是层类型对应的解析函数指针
+ * 
+ */
 LayerParseFnMap::value_type gParseTableData[] =
     {
         LayerParseFnMap::value_type("Convolution", parseConvolution),
@@ -1001,6 +1006,10 @@ const IBlobNameToTensor* CaffeParser::parse(const char* deployFile,
             continue;
         }
 
+        /**
+         * @brief 轮询完整个网络，检查有没有层的是解析函数是不存在的
+         * 
+         */
         LayerParseFnMap::iterator v = gParseTable.find(layerMsg.type());
 
         if (v == gParseTable.end())
@@ -1008,6 +1017,7 @@ const IBlobNameToTensor* CaffeParser::parse(const char* deployFile,
             gLogError << "could not parse layer type " << layerMsg.type() << std::endl;
             ok = false;
         }
+        /*如果存在对应层类型的解析函数，那么就执行解析函数， 包含*/
         else
         {
             ILayer* layer = (*v->second)(network, layerMsg, weights, mBlobNameToTensor);
@@ -1021,11 +1031,12 @@ const IBlobNameToTensor* CaffeParser::parse(const char* deployFile,
             else
             {
                 layer->setName(layerMsg.name().c_str());
+                //更新blobname到trensor*的map
                 mBlobNameToTensor->add(layerMsg.top(0), layer->getOutput(0));
             }
         }
     }
-
+    //更具map再来更新对应tensor的name
     mBlobNameToTensor->setTensorNames();
     return ok && weights.isOK() ? mBlobNameToTensor : 0;
 }

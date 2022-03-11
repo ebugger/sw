@@ -144,8 +144,8 @@ private:
     const ILayer* findLayer(const std::string& name) const;
     bool checkNames(const char* name);
 
-    std::vector<ITensor *> mTensors;
-    std::vector<ILayer *>  mLayers;
+    std::vector<ITensor *> mTensors;   //all tensers that in this network
+    std::vector<ILayer *>  mLayers;    
     std::vector<ITensor *> mInputs;
     std::vector<ITensor *> mOutputs;
 

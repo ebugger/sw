@@ -62,9 +62,23 @@ enum EdgeDirectionEnum {
 };
 typedef SequenceEnum<EdgeDirectionEnum, NvU8> EdgeDirection;
 
+// #define AST_EDGE_SIDE_ENUMS(GEN_ENUM) \
+//     GEN_ENUM(FIRST, 0U)               \
+//     GEN_ENUM(SECOND, 1U)              \
+//     GEN_ENUM(BOTH, 2U)
+
+// enum EdgeSideEnum {
+//     GEN_ENUM(FIRST, 0U) GEN_ENUM(SECOND, 1U) GEN_ENUM(BOTH, 2U)
+// };
+// enum EdgeSideEnum {
+//     FIRST  = 0U,  输入
+//     SECOND = 1U,  输出
+//     BOTH   = 2U,
+// };
 enum EdgeSideEnum {
     AST_EDGE_SIDE_ENUMS(GEN_ENUM)
 };
+//ast::EdgeSide edge_side( is_input ? ast::EdgeSideEnum::SECOND : ast::EdgeSideEnum::FIRST);
 typedef SequenceEnum<EdgeSideEnum, NvU8> EdgeSide;
 
 
@@ -251,6 +265,7 @@ protected:
 
 template <class G> class GraphScoreboard;
 
+//G<- graph
 template <class G>
 class GraphTraversalPointer
 {
@@ -296,12 +311,12 @@ public:
     }
 
 protected:
-    G *m_graph;
+    G *m_graph; //graph class
     Node *m_node;
     GraphTraversalState m_state;
 };
 
-
+//构造函数里面只初始化了m_graph成graph
 template <class G>
 class GraphScoreboard
 {
@@ -541,7 +556,7 @@ protected:
 
 
 
-
+//G<- Graph
 template <class G>
 class ScoredGraphOrdering
 {
@@ -567,7 +582,7 @@ public:
     typedef typename GraphScoreboard<G>::NodeScoresIterator NodeScoresIterator;
     typedef typename GraphScoreboard<G>::EdgeScoresIterator EdgeScoresIterator;
     typedef typename GraphScoreboard<G>::ElemScoresIterator ElemScoresIterator;
-
+    //构造函数初始化了一个graph对象和一个scoreboard对象， scoreboard构造初始化挂载了这个graph
     ScoredGraphOrdering(G *graph = 0) : m_graph(graph), m_scores(graph) { }
     virtual ~ScoredGraphOrdering() { }
 
@@ -608,8 +623,8 @@ public:
     {
         NvDlaError e = NvDlaError_Success;
         int time = 0;
-        typename EdgeSequence::const_iterator ie_i;
-        std::list<GraphTraversalPointer<G>> pointer_list;
+        typename EdgeSequence::const_iterator ie_i;  //const_iterator vector迭代器的指向不能变，但指向的对象的值可以改变 
+        std::list<GraphTraversalPointer<G>> pointer_list;   //在scoreorder创建过程中 临时存在的一个list， 只通过pushback更新
 
         // gLogInfo << "generating scoreboard." << std::endl;
 
@@ -619,10 +634,10 @@ public:
 
         clear();
 
-        // for all graph input edges...
+        // for all graph input edges...从输入edge切入
         for ( ie_i = m_graph->inputEdges().begin(); ie_i != m_graph->inputEdges().end(); ++ie_i)
         {
-            // this *should* be zero sized, check it.
+            // this *should* be zero sized, check it. input edge上游不能有node， 通过edge的属性中的两个方向的vector查找node
             NodeSequence upstream_nodes = m_graph->upstreamNodes(*ie_i);
             if ( upstream_nodes.size() )
             {
@@ -631,21 +646,23 @@ public:
             }
             NodeSequence downstream_nodes = m_graph->downstreamNodes(*ie_i);
 
-            // for all downstream nodes...
+            // for all downstream nodes...继续从网络输入edge找到作为输入的下游的node开始,每个node都创建一个GTP
             for ( size_t ni = 0, NI = downstream_nodes.size(); ni != NI; ++ni )
             {
                 Node *downstream_node = downstream_nodes[ni];
+                //初始化挂载graph和当前edge向下的这个node到这个pointer
                 GraphTraversalPointer<G> downstream_pointer(m_graph, downstream_node);
                 // don't push more than once as there can be multiple paths to a node from the inputs.
                 // also note that is the very first such time this happens and so it's impossible for
                 // the GTP<G> pointers to have anything other than "discovered" as their current state.
                 // that means the find GTP<G> (downstream_pointer) comparison is really only testing for
                 // the presence of the same node.
+                //搜索现有， 没有就添加
                 if ( pointer_list.end() == std::find(pointer_list.begin(), pointer_list.end(), downstream_pointer) )
                 {
                     pointer_list.push_back( downstream_pointer );
                 }
-            }
+            }// end of downstream node 
         }
 
         while ( pointer_list.size() )
@@ -1115,12 +1132,16 @@ public:
     typedef NodeClass Node;
     typedef EdgeClass Edge;
     typedef std::pair<NodeClass *, EdgeClass *> Elem;
-    typedef std::vector< Node *> NodeSequence;
+    typedef std::vector< Node *> NodeSequence; //Seq都通过vector实现
     typedef std::vector< Edge *> EdgeSequence;
     typedef std::vector< Elem >  ElemSequence;
     typedef typename std::vector< Node *>::iterator NodeSequenceIterator;
     typedef typename std::vector< Edge *>::iterator EdgeSequenceIterator;
     typedef typename std::vector< Elem >::iterator  ElemSequenceIterator;
+    /**
+     * @brief 比对node在整个网络中的id是否从小到大， 一般在edge的属性中包含输入输出的node vector，这个vector需要排序，现后计算顺序
+     * 
+     */
     struct nodeCompareFn
     {
         bool operator() (const Node* lhs, const Node* rhs) const
@@ -1169,7 +1190,7 @@ public:
             return ret;
         }
     };
-
+    //包含了set排序的依据函数
     typedef std::set<Node*, nodeCompareFn> NodeSet;
     typedef std::set<Edge*, edgeCompareFn> EdgeSet;
     typedef std::set<Elem, elemCompareFn >  ElemSet;
@@ -1465,9 +1486,10 @@ public:
     }
 
 
-
+    //当更新完tensor-edge的映射后，把edge和node通过edge的side的方向进行"相互"挂载
     virtual bool appendNodeToEdge(Edge *edge, EdgeSide side, Node *node)
-    {
+    {   
+        //会初始化并挂载到graph的m_edge_attr_map
         EdgeAttr *edge_attr = fetchEdgeAttr(edge);
         NodeAttr *node_attr = fetchNodeAttr(node);
         if ( ! (edge_attr && node_attr) )
@@ -1486,8 +1508,9 @@ public:
         }
         else
         {
+            //把node加到edge的属性里面
             appendNodeToEdge_Internal(edge_attr, node, side.v());
-
+            //把edge加到node的属性里面
             appendEdgeToNode_Internal(node_attr, edge, side.v());
         }
 
@@ -1677,18 +1700,20 @@ protected:
     //
     // here we maintain an associative mapping to connectivity and
     // element attribute information.
+    ////注意是一个2个元素(分别对应side)的数组， 里面每个元素都是一个edgeSeq的vector，初始化强制vector的大小为1，但后面超出的话会继续分配新的空间2n大小并copy数据过去
     //
     struct NodeAttr
-    {
-        EdgeSequence m_edges[2]; // for each side, ordered, small-ish, static-ish
+    {   
+        
+        EdgeSequence m_edges[2]; // for each side, ordered, small-ish, static-ish, vector of edge
         NodeAttr() {
             m_edges[0].reserve(1);
             m_edges[1].reserve(1);
         }
     };
-
+    //注意是一个2个元素(分别对应side)的数组， 每个元素都是一个NodeSeq的vector，初始化强制vector的大小为1，但后面超出的话会继续分配新的空间2n大小并copy数据过去
     struct EdgeAttr
-    {
+    {   
         NodeSequence m_nodes[2];  // one for each side, ordered, small-ish, static-ish
         EdgeAttr() {
             m_nodes[0].reserve(1);
@@ -1700,7 +1725,7 @@ protected:
     typedef std::unordered_map<const Edge *, EdgeAttr> EdgeAttrMap;
 
     NodeAttrMap m_node_attr_map;
-    EdgeAttrMap m_edge_attr_map;
+    EdgeAttrMap m_edge_attr_map; //edge到edge属性的映射
 
     inline EdgeAttr *lookupEdgeAttr(const Edge *edge)
     {
@@ -1724,7 +1749,7 @@ protected:
 
     //
     // fetch := find || (alloc && insert) (assuming when input is != 0)
-    //
+    // 在edge到edge属性的映射中查找edge，如果没找到就初始化属性对象然后把这个新的映射在graph中创建好
     EdgeAttr *fetchEdgeAttr(const Edge *edge)
     {
         typename EdgeAttrMap::iterator f;
@@ -1760,7 +1785,7 @@ protected:
         return ret_attr;
     }
 
-
+    //将分散的Edge和node通过node属性连接起来，属性里面是两个Edge Seq的vector，两个方式，排序的
     void appendEdgeToNode_Internal(NodeAttr *n_attr, Edge *edge, size_t side)
     {
         EdgeSequenceIterator
@@ -1776,7 +1801,7 @@ protected:
             }
         }
     }
-
+    //将分散的node和edge通过edge属性连接起来，属性里面是两个(方向)Node Seq的vector（等待把node加入进来）， side代表方向 1是输出， 0是输入，如果一个方向连接多个node，需要按照计算顺序排序更新vector
     void appendNodeToEdge_Internal(EdgeAttr *e_attr, Node *node, size_t side)
     {
         NodeSequenceIterator

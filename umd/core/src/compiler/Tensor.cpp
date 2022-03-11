@@ -60,9 +60,16 @@ TensorFactory::TensorPrivPair TensorFactory::newTensor()
     return TensorPrivPair(tensor, tensor_priv);
 }
 
+/**
+ * @brief 妈的就是一个通过父类指针查找派生类的过程，这两个是一pair在一个map里面
+ * 
+ * @param tensor 
+ * @return Tensor* 
+ */
 Tensor *TensorFactory::priv(ITensor *tensor)
 {
     // gLogError << __func__ << " looking up priv for base_i=" << tensor << endl;
+    // typedef typename std::map<L, R>::iterator left_iterator;
     BiMap<ITensor *, Tensor *>::left_iterator f = s_priv.find_left(tensor);
     if ( f == s_priv.end_left() ) {
         return NULL;

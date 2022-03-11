@@ -108,7 +108,7 @@ protected:
     friend class Wisdom;
     friend class CompilerFactory;
 
-    Wisdom *m_wisdom;
+    Wisdom *m_wisdom;  //构造函数初始化为0 
 
     /**
      * @Purpose:->

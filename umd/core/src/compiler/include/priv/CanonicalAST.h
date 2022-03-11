@@ -556,7 +556,7 @@ namespace canonical_ast
         int m_next_node_id;
         int m_next_edge_id;
 
-        ast::ScoredGraphOrdering<Graph> *m_scored_ordering;
+        ast::ScoredGraphOrdering<Graph> *m_scored_ordering; //graph构造函数已经初始化了
     };
 
     class Node
@@ -593,6 +593,11 @@ namespace canonical_ast
         void setName(const std::string name) { m_name = name; }
 
         Graph* graph()          { return m_containing_graph; }
+        /**
+         * @brief 把node挂载到graph中
+         * 
+         * @param g 
+         */
         void setGraph(Graph* g) { m_containing_graph = g; }
 
         CanonicalOpType canonicalOpType() const         { return m_can_op_type; }
@@ -624,7 +629,7 @@ namespace canonical_ast
         Graph*          m_containing_graph;
         CanonicalOpType m_can_op_type;
         CanonicalParams m_basic_can_params;
-        EdgeSequence    m_input_edges;
+        EdgeSequence    m_input_edges;     //vector of edge
         EdgeSequence    m_output_edges;
     };
 
@@ -695,7 +700,7 @@ namespace canonical_ast
         virtual void captureNetworkParams(ConvolutionLayer* conv);
         virtual ConvolutionParams& params() { return m_can_params; }
     protected:
-        ConvolutionParams m_can_params;
+        ConvolutionParams m_can_params;  //注意不是指针， 成员函数使用. 不是->
     };
 
     // fully connected
@@ -849,7 +854,7 @@ namespace canonical_ast
 
             return r.str();
         }
-
+        //初始化edge挂载在哪个graph， 以及对应于原网络中的tensor
         Edge() : m_containing_graph(0), m_original_tensor(0)
         {
             m_unique_id = m_next_id++;
@@ -872,7 +877,7 @@ namespace canonical_ast
         NvU32           m_unique_id; // id for graph ordering. u32 instead of string.
         static NvU32    m_next_id;
         Graph*   m_containing_graph;
-        Tensor*  m_original_tensor;
+        Tensor*  m_original_tensor;  //从原来网络中复制出来的，没有挂载网络的信息了
     };
 
 

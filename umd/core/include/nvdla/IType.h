@@ -69,7 +69,7 @@ public:
     };
     static inline UnderlyingType max() { return 3U; }
     const char* c_str() const {
-        const char * names[4] = { "UNKNOWN", "NCHW", "NHWC", "NCxHWx" };
+        const char * names[4] = { "UNKNOWN", "NCHW", "NHWC", "NCxHWx" };  //array of pointers
         return names[m_v];
     }
 

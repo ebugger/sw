@@ -49,6 +49,10 @@ namespace nvdla {
 namespace caffe {
 namespace priv {
 
+/**
+ * @brief 包含blob name -> tensor对象的映射
+ * 
+ */
 class BlobNameToTensor : public IBlobNameToTensor
 {
 public:

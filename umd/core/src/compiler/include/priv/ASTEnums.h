@@ -36,9 +36,9 @@
 
 
 #define AST_EDGE_SIDE_ENUMS(op) \
-    op(FIRST, 0U)               \
+    op(FIRST, 0U)               \ 
     op(SECOND, 1U)              \
-    op(BOTH, 2U)
+    op(BOTH, 2U)         
 
 
 #endif // NVDLA_PRIV_AST_ENUMS_H

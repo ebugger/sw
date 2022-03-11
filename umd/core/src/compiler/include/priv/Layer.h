@@ -111,7 +111,10 @@ public:
     };
 };
 typedef SequenceEnum<LayerFactoryType::Enum, NvU16> LayerTypeEnum;
-
+/**
+ * @brief 实际就是创建两组pair， 一组对应基类(Ilayer, layer)， 一组对应派生类(Iconv,Conv)，
+ * 
+ */
 typedef PrivDiamond<ILayer, Layer, IConvolutionLayer,    ConvolutionLayer>    ConvolutionLayerDiamond;
 typedef PrivDiamond<ILayer, Layer, IFullyConnectedLayer, FullyConnectedLayer> FullyConnectedLayerDiamond;
 typedef PrivDiamond<ILayer, Layer, IActivationLayer,     ActivationLayer>     ActivationLayerDiamond;

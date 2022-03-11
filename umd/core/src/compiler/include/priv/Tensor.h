@@ -143,7 +143,7 @@ public: // internally facing
 
 protected:
     Dims4             mDimensions;
-    INetwork*         mNetwork;
+    INetwork*         mNetwork;  //which network it belongs to;
     std::string       mName;    // the user name if the user provided one, else
     DataFormat        mDataFormat;
     DataType          mDataType;

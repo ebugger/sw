@@ -60,6 +60,12 @@ ENUM_PARAMETER_STATIC(canonical_ast::CanonicalOpType,  CANONICAL_OPERATION_TYPE_
 NvU32 canonical_ast::Node::m_next_id = 0;
 NvU32 canonical_ast::Edge::m_next_id = 0;
 
+/**
+ * @brief 从原始网络层->canonical node的信息复制，同样的在node factory里面创建了基类到派生类的map映射
+ * 
+ * @param orig_nw_layer 
+ * @return canonical_ast::Node*  
+ */
 canonical_ast::Node *canonical_ast::newCanonicalNode(Layer *orig_nw_layer)
 {
     LayerType original_type = orig_nw_layer->getType();
@@ -139,12 +145,13 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
     map<canonical_ast::Node *, Layer *, Graph::nodeCompareFn>  node_layer;
     map<canonical_ast::Node *, Layer *, Graph::nodeCompareFn>::iterator lni;
 
-    map<Tensor *, canonical_ast::Edge *>  tensor_edge;
-    map<Tensor *, Tensor *>  nw_tensor_to_can_tensor;
+    map<Tensor *, canonical_ast::Edge *>  tensor_edge; //创建graph时临时存放原网络tensor和edge的映射
+    map<Tensor *, Tensor *>  nw_tensor_to_can_tensor; //创建graph时临时存放原网络tensor和通用tensor的映射
     map<Tensor *, canonical_ast::Edge *>::iterator tei;
 
     Graph *graph = new Graph();
 
+    //initial a vector for the whole network inputs and copy the input tensor into it
     vector<Tensor *> network_inputs;
     for (int ni = 0; ni < network->getNumInputs(); ++ni)
     {
@@ -165,14 +172,14 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
 
     for (int li = 0; li < network->getNumLayers(); li++)
     {
-        ILayer *ilayer = network->getLayer(li);
-        Layer *layer = LayerFactory::priv(ilayer);
+        ILayer *ilayer = network->getLayer(li); //从网络实例中得到层的接口
+        Layer *layer = LayerFactory::priv(ilayer); //从层的接口中得到派生类的实例
         if ( !(ilayer && layer) )
         {
             gLogError << __func__ << " encountered null layer at network layer index=" << li << endl;
             continue;
         }
-
+        //从原始网络层->canonical node的信息复制，同样的在node factory里面创建了基类到派生类的map映射
         canonical_ast::Node *can_node = newCanonicalNode(layer);
         if ( !can_node )
         {
@@ -180,29 +187,33 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
             graph = 0;
             goto done;
         }
-        can_node->setGraph(graph);
-        graph->insertNode(can_node);
+        can_node->setGraph(graph); //把node挂载到对应的graph
+        graph->insertNode(can_node); //在graph的node队列中加入该node
 
-        can_node->setId(graph->nextNodeId());
-        can_node->setName(layer->getName());
+        can_node->setId(graph->nextNodeId()); //通过graph的统一公共id更新node自身的id
+        can_node->setName(layer->getName());  //通过原网络中的layer的名字更新node的名字
 
-        node_layer[can_node] = layer;
+        node_layer[can_node] = layer;  //在graph中添加更新node到layer的映射
     }
 
     //
     // Now all the layer nodes are in the graph.
     // For each layer assemble the edges.
     //
-
+    //node_layer ：map<canonical_ast::Node *, Layer *, Graph::nodeCompareFn>
     for (lni = node_layer.begin(); lni != node_layer.end(); ++lni)
     {
-        canonical_ast::Node *node = lni->first;
+        canonical_ast::Node *node = lni->first;  //遍历node<->layer的map，得到node和layer
         Layer *l = lni->second;
-
+        /**
+         * @brief  input/ouput是该层layer的输入输出
+         * 
+         */
         size_t input_tensors = 0, output_tensors = 0, aux_input_tensors = 0;
+        //输入输出都算io_tensor
         vector<Tensor *> io_tensors, aux_tensors;
         NVDLA_UNUSED(aux_input_tensors);
-
+        //single node/layer process start
         for(int ii = 0, II = l->getNumInputs(); ii < II; ++ii)
         {
             Tensor *tensor = TensorFactory::priv(l->getInput(ii));
@@ -225,51 +236,61 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
             io_tensors.push_back(tensor);
             output_tensors++;
         }
-
+        //当前还是在处理这一层中，所以下面是输入输出一起处理，开始处理单层/node
         for(size_t io = 0, IO = io_tensors.size(); io < IO; ++io)
         {
             Tensor *nw_tensor = io_tensors[io];
             bool is_input = io < input_tensors;
+            //初始化SequenceEnum类的实例时候更新underlying_type，输入为1， 输出为0
             ast::EdgeSide edge_side( is_input ? ast::EdgeSideEnum::SECOND : ast::EdgeSideEnum::FIRST);
-            ast::EdgeDirection edge_dir(ast::EdgeDirectionEnum::DIRECTED);
+            //初始化SequenceEnum类的实例时候更新underlying_type，默认为单向 
+            ast::EdgeDirection edge_dir(ast::EdgeDirectionEnum::DIRECTED); 
 
             map<Tensor *, canonical_ast::Edge *>::iterator f = tensor_edge.find(nw_tensor);
-            canonical_ast::Edge *can_edge = 0;
+            canonical_ast::Edge *can_edge = 0;  //处理每层的每个输入输出时，每个tensor对应一个edge
             Tensor* can_tensor = 0;
-            if ( f == tensor_edge.end() )
+            if ( f == tensor_edge.end() ) //找不到原网络tensor的话添加tensor和edge的对应pair到map
             {
-                can_edge = new canonical_ast::Edge();
-                can_edge->setGraph(graph);
+                can_edge = new canonical_ast::Edge();//找不到原网络tensor的话添加tensor和edge的对应pair到map
+                can_edge->setGraph(graph);//挂载graph
 
-                can_tensor = nw_tensor->clone();
-                can_tensor->setNetwork(NULL);   // get rid of any connections back to the network builder
-                can_tensor->setTensorType(TensorType::kIO);
-                can_edge->setId(graph->nextEdgeId());
+                //复制-脱离-设置属性
+                can_tensor = nw_tensor->clone(); //直接通过原网络中的tensor this指针，从拷贝构造函数复制一份新的tensor
+                can_tensor->setNetwork(NULL);   // get rid of any connections back to the network builder 新tensor脱离挂载到的原网络
+                can_tensor->setTensorType(TensorType::kIO);  //中间结果的属性是在两个OP之间传递的
+
+                //递增顺序-挂载tensor-更新graph
+                can_edge->setId(graph->nextEdgeId());   //graph 中的edge_idx++
                 can_edge->setOriginalTensor(can_tensor);
-                graph->insertEdge(can_edge);
+                graph->insertEdge(can_edge); //添加edge和compareFn的pair到graph里面的一个set(排好序的)
 
-                tensor_edge[nw_tensor] = can_edge;
-                nw_tensor_to_can_tensor[nw_tensor] = can_tensor;
+                tensor_edge[nw_tensor] = can_edge;  //最终的原网络tensor-通用edge的映射
+                nw_tensor_to_can_tensor[nw_tensor] = can_tensor;//最终的原网络tensor-通用tensor的映射
             } else {
                 can_edge = f->second;
-            }
+            }//更新tensor - edge映射完成
+            //把edge和node通过side的方向进行挂载，side的方向是由edge/tensor固定的，过程会创建edge到edge属性的map
             graph->appendNodeToEdge(can_edge, edge_side, node);
 
-            // if this is an input node it could be one of the network inputs.
+            // if this is an input node it could be one of the network inputs. 有可能是整个网络输入
             // if so keep track of it.
             if ( is_input )
             {
                 for ( size_t iti = 0; iti < network_inputs.size(); iti++)
                 {
+                        //只判断tensor的地址是否和网络的输入相同
                     if ( nw_tensor == network_inputs[iti] )
                     {
                         // gLogInfo << " identified input edge: " << (int)iti << " tensor id " << tensor->getName() << endl;
+                        //更新graph的input_edges的vector
                         input_edges[iti] = can_edge;
+                        //通过原网络tensor找到通用tensor，然后更新通用tensor的属性为input
                         can_tensor = nw_tensor_to_can_tensor[nw_tensor];
                         can_tensor->setTensorType(TensorType::kNW_INPUT);
                         break;
                     }
                 }
+                //更新node的m_input_edges vector
                 node->markInputEdge(can_edge);
             }
             else
@@ -705,11 +726,11 @@ canonical_ast::ConvolutionNode* canonical_ast::NodeFactory::newConvNode(Convolut
     typedef typename canonical_ast::Node* B;
     typedef typename canonical_ast::ConvolutionNode* D;
 
-    B b;
-    D d;
+    B b;//base node
+    D d;//derived node
 
     b = d = new canonical_ast::ConvolutionNode();
-    d->captureNetworkParams(orig_nw_layer);
+    d->captureNetworkParams(orig_nw_layer); //copy para from network to canonical struct
 
     s_conv_priv.insert(std::pair<B, D>(b, d));
     return d;

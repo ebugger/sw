@@ -161,6 +161,12 @@ NvDlaError NetworkFactory::deleteNetwork(INetwork *network)
     return NvDlaSuccess;
 }
 
+/**
+ * @brief 从NetworkFactory（BiMap<INetwork *, Network*>）里面找到接口父类对应的子类
+ * 
+ * @param network 
+ * @return Network* 
+ */
 Network *NetworkFactory::priv(INetwork *network)
 {
     BiMap<INetwork *, Network *>::left_iterator f = s_priv.find_left(network);
@@ -250,7 +256,10 @@ INetwork *NetworkFactory::deserializeNetwork(WisdomContainerEntry *entry)
     return n.i();
 }
 
-
+/**
+ * @brief Construct a new Network:: Network object 设置三种卷积的计算输出的类
+ * 
+ */
 Network::Network() :
     mConvDims(&sDefaultConvDims),
     mDeconvDims(&sDefaultDeconvDims),
@@ -294,9 +303,9 @@ IConvolutionLayer* Network::addConvolution(ITensor* inputTensor, int numOutputCh
 
     output->setDimensions( d.derived().priv()->getOutputDimensions() );
 
-
+    //把父类接口添加到整个网络 ILayer*
     mLayers.push_back(d.base().i());
-    return d.derived().i();
+    return d.derived().i();  //返回继承类的接口IConv*
 }
 
 
@@ -748,6 +757,12 @@ const vector<ITensor *>& Network::getOutputs() const
     return mOutputs;
 }
 
+/**
+ * @brief 更新tensor自身派生的信息，挂载到属于的网络， 同时更新网络包含的整个tensor
+ * 
+ * @param s 
+ * @return ITensor* 
+ */
 ITensor* Network::addTensor(const string &s)
 {
     TensorFactory::TensorPrivPair t = TensorFactory::newTensor();
@@ -774,7 +789,7 @@ bool Network::assignSymbols(Wisdom *wisdom)
         string sym;
         ok = wisdom->findLayerSymbol(layer, sym);
         if ( ! ok ) {
-            ok = wisdom->assignLayerSymbol(layer, sym);
+            ok = wisdom->assignLayerSymbol(layer, sym);  //更新layer的symbol
             if ( !ok ) {
                 gLogError << "unable to assign symbol name to layer " << layer->getName() << " ?" << endl;
                 goto done;
@@ -782,7 +797,7 @@ bool Network::assignSymbols(Wisdom *wisdom)
         }
 
         // tell the layer to assign symbols for whatever it references...
-        ok = layer->assignSymbols(wisdom);
+        ok = layer->assignSymbols(wisdom);//更新layer对应的输入输出的symbol
         if ( !ok ) {
             gLogError << "unable to assign symbols for layer " << layer->getName() << endl;
             goto done;

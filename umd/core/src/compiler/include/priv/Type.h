@@ -65,6 +65,9 @@ public:
 
 //
 // Wrapper for contiguous (starting at zero) sequence enumeration(s).
+// SequenceEnum<EdgeSideEnum, NvU8> (ast::EdgeSideEnum::SECOND : ast::EdgeSideEnum::FIRST)
+// ast::EdgeSideEnum::SECOND : ast::EdgeSideEnum::FIRST
+//
 //
 template <typename EnumClass, typename UnderlyingType = NvU8>
 class SequenceEnum
@@ -227,13 +230,21 @@ public:
     inline bool operator ==(const PrivPair &rhs) const { return m_i_priv == rhs.m_i_priv; }
     inline bool operator <(const PrivPair &rhs) const { return m_i_priv < rhs.m_i_priv; }
 
-    inline I i() const      { return m_i_priv.first;  }
+    inline I i() const      { return m_i_priv.first;  } //返回pair配对中的首元素，父类， 作为接口
     inline P priv() const   { return m_i_priv.second; }
 
 protected:
     std::pair<I, P> m_i_priv;
 };
 
+/**
+ * @brief 实际就是创建两组pair， 一组对应基类(BI, BP)， 一组对应派生类(DI,DP)，
+ * 
+ * @tparam BI 
+ * @tparam BP 
+ * @tparam DI 
+ * @tparam DP 
+ */
 template <typename BI, typename BP, typename DI, typename DP>
 class PrivDiamond
 {

@@ -100,7 +100,7 @@ struct TestAppArgs
 struct TestInfo
 {
     // common
-    nvdla::IWisdom* wisdom;
+    nvdla::IWisdom* wisdom;  //初始化会通过create创建一个子类然用同一片内存后返回父类的接口
     std::string wisdomPath;
 
     // parse

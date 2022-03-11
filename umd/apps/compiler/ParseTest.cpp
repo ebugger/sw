@@ -181,7 +181,7 @@ static NvDlaError parseCaffeNetwork(const TestAppArgs* appArgs, TestInfo* i)
     }
 
     NvDlaDebugPrintf("attaching parsed network to the wisdom...\n");
-    if (!i->wisdom->setNetworkTransient(network))
+    if (!i->wisdom->setNetworkTransient(network))  //似乎就是更新wisdom里面的基本类型的map
         ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "wisdom->setNetworkTransient() failed");
 
     return NvDlaSuccess;

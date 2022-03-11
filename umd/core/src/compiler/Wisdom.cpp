@@ -45,6 +45,7 @@ namespace nvdla
 IWisdom::IWisdom() { }
 IWisdom::~IWisdom() { }
 
+//创建配对，返回pair配对中的IWisdom，父类， 作为接口
 IWisdom *createWisdom()
 {
     priv::WisdomFactory::WisdomPrivPair wp_pair = priv::WisdomFactory::newWisdom();
@@ -790,7 +791,11 @@ bool SymbolTable::findTensor(Tensor *find_this, std::string &found_name)
 
 
 
-
+/**
+ * @brief 实例化winsdom的profiler并把wisdom挂载到profiler
+ * 
+ * @return IProfiler* 
+ */
 IProfiler *Wisdom::getProfiler()
 {
     if (!m_profiler) {
@@ -801,6 +806,11 @@ IProfiler *Wisdom::getProfiler()
     return m_profiler; // Profiler->IProfiler ok here for now
 }
 
+/**
+ * @brief 实例化compiler并把wisdom挂在到compiler
+ * 
+ * @return ICompiler* 
+ */
 ICompiler *Wisdom::getCompiler()
 {
     if (!m_compiler) {

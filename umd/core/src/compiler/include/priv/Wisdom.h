@@ -53,6 +53,10 @@ namespace priv
 class WisdomContainer;
 
 
+/**
+ * @brief 主要是network/layer/tensor/profiler/loadable的双向的接口(父类)map (名字和对象)
+ * 
+ */
 class SymbolTable
 {
 public:
@@ -124,7 +128,7 @@ protected:
 class WisdomFactory
 {
 public:
-    typedef PrivPair<IWisdom *, Wisdom*> WisdomPrivPair;
+    typedef PrivPair<IWisdom *, Wisdom*> WisdomPrivPair;  //
 
     static WisdomPrivPair newWisdom();
     static NvDlaError deleteWisdom(IWisdom *wisdom);
@@ -222,8 +226,8 @@ public:// internally facing
 
 
 protected:
-    WisdomContainer *m_container;
-    INetwork *m_network;
+    WisdomContainer *m_container;  //initial
+    INetwork *m_network; //initial
 
     SymbolTable m_symbol_table;
 
@@ -232,8 +236,8 @@ protected:
     TensorFactory m_tensor_factory;
     LoadableFactory m_loadable_factory;
 
-    ICompiler *m_compiler;
-    IProfiler *m_profiler;
+    ICompiler *m_compiler; //initial
+    IProfiler *m_profiler; //initial
 
     DataType m_data_type;
 
