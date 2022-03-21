@@ -53,8 +53,8 @@ MODULE_CFLAGS += \
     -DNVDLA_UTILS_ERROR_TAG="\"DLA\""
 
 SHARED_LIBS := \
-    $(ROOT)/out/core/src/compiler/libnvdla_compiler/libnvdla_compiler.so
-
+/data/sw/umd/libnvdla_compiler.so
+    #$(ROOT)/out/core/src/compiler/libnvdla_compiler/libnvdla_compiler.so
 MODULE_SRCS := $(NVDLA_SRC_FILES)
 
 include $(ROOT)/make/module.mk

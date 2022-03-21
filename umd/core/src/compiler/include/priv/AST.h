@@ -438,7 +438,7 @@ public:
             return edge_score_i;
         }
 
-        up_nodes = m_graph->upstreamNodes(edge);
+        up_nodes = m_graph->upstreamNodes(edge);//首次网络input的edge为0 
 
         bool all_nodes_finished = true; // note: edges w/o upstream nodes are finishable at 0...
         int nodes_finishable_time = 0;
@@ -461,7 +461,7 @@ public:
             edge_score_i->second.setFinishable(nodes_finishable_time); // := same as node finishable
             edge_score_i->second.setFinished(nodes_finished_time); // := same as node finish
 
-            // gLogInfo << "finish edge=" << edge_score_i->first->id() << " score=" << edge_score_i->second.toString() << std::endl;
+            /gLogInfo << "finish edge=" << edge_score_i->first->id() << " score=" << edge_score_i->second.toString() << std::endl;
             fetchElemScore(edge_score_i->first, edge_score_i->second);
         }
 
@@ -488,7 +488,7 @@ public:
         // input edges
         EdgeSequence up_edges = m_graph->upstreamEdges(node);
 
-        bool all_up_edges_finishable = true; // nodes w/o upstream edges are finishable.
+        bool all_up_edges_finishable = true; // nodes w/o upstream edges are finishable.向上是可以存在没有edge的情况的
         int all_up_edges_finishable_time = 0;
 
         for (EdgeSequenceIterator ue_i = up_edges.begin(); all_up_edges_finishable && (ue_i != up_edges.end()); ++ue_i )
@@ -646,7 +646,7 @@ public:
             }
             NodeSequence downstream_nodes = m_graph->downstreamNodes(*ie_i);
 
-            // for all downstream nodes...继续从网络输入edge找到作为输入的下游的node开始,每个node都创建一个GTP
+            // for all downstream nodes...继续从网络输入edge找到作为输入的下游的node开始,每个node都创建一个GraphTreversePtr
             for ( size_t ni = 0, NI = downstream_nodes.size(); ni != NI; ++ni )
             {
                 Node *downstream_node = downstream_nodes[ni];
@@ -702,7 +702,7 @@ public:
 
             if ( pointer_list.size() == 0 )
             {
-                continue; // done.
+                continue; // done.  node一般不会设置成finished， 一般只有edge会被设置成finished.
             }
 
             //
@@ -716,11 +716,11 @@ public:
 
             GraphTraversalPointer<G> &ptr = *finishable_i;
 
-            //
+           //
             // finish and advance downstream
             //
             m_scores.finishNode(ptr, time);
-            time++;
+            time++; 
 
             //
             // if there's more than one downstream node then add to the pointer list.

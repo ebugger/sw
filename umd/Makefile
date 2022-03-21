@@ -28,18 +28,18 @@
 COMPILER_SUBDIRS = core/src/compiler \
 	apps/compiler
 
-RUNTIME_SUBDIRS = core/src/runtime \
-	apps/runtime
+# RUNTIME_SUBDIRS = core/src/runtime \
+# 	apps/runtime
 
 compiler:
 	for dir in $(COMPILER_SUBDIRS); do \
 		$(MAKE) -C $$dir; \
 	done
 
-runtime:
-	for dir in $(RUNTIME_SUBDIRS); do \
-		$(MAKE) -C $$dir; \
-	done
+# runtime:
+# 	for dir in $(RUNTIME_SUBDIRS); do \
+# 		$(MAKE) -C $$dir; \
+# 	done
 
 clean:
 	rm -rf out/

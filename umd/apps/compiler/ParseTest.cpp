@@ -47,7 +47,7 @@ NvDlaError parseSetup(const TestAppArgs* appArgs, TestInfo* i)
 {
     return NvDlaSuccess;
 }
-
+//解析外部json得到scale，量化系数
 NvDlaError parseTensorScales(const TestAppArgs* appArgs, TestInfo *i, nvdla::INetwork* network)
 {
     NvDlaError e = NvDlaSuccess;

@@ -877,8 +877,8 @@ typedef std::map<std::string, LayerParseFn> LayerParseFnMap;
 
 /**
  * @brief value_type是map里面的pair，下面的是手动更新的，相当于手动建立了一个map，
- * 基本元素是层类型对应的解析函数指针
- * 
+ * 基本元素是层类型对应的解析函数指针 ,map<string, int>::value_type  v3; //此时value_type的v3类型是pair<const string, int>，注意pair键值对中第一个元素的类型有const(不可修改).
+ * 对于泛型编程来说，可能不知道具体类型是什么，所有就有了key_type、mapped_type、value_type这些类型
  */
 LayerParseFnMap::value_type gParseTableData[] =
     {
@@ -1031,12 +1031,12 @@ const IBlobNameToTensor* CaffeParser::parse(const char* deployFile,
             else
             {
                 layer->setName(layerMsg.name().c_str());
-                //更新blobname到trensor*的map
+                //更新blobname到trensor*的map, 一般情况一层只有一个输出
                 mBlobNameToTensor->add(layerMsg.top(0), layer->getOutput(0));
             }
         }
     }
-    //更具map再来更新对应tensor的name
+    //更具map再来更新对应tensor的name，在创建层的时候已经有过初始匿名了，这里最终更新
     mBlobNameToTensor->setTensorNames();
     return ok && weights.isOK() ? mBlobNameToTensor : 0;
 }

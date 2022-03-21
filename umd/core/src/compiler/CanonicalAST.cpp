@@ -167,8 +167,8 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
     }
     output_edges.resize(network_outputs.size());
 
-    //    gLogInfo << "canonical_ast::" << __func__ << " network shows " << network_inputs.size() << " inputs and " <<
-    //        network_outputs.size() << " outputs" << endl;
+       gLogInfo << "canonical_ast::" << __func__ << " network shows " << network_inputs.size() << " inputs and " <<
+           network_outputs.size() << " outputs" << endl;
 
     for (int li = 0; li < network->getNumLayers(); li++)
     {

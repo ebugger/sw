@@ -34,8 +34,8 @@ BUILDOUT ?= $(ROOT)/out/apps/compiler
 BUILDDIR := $(BUILDOUT)/$(MODULE)
 TEST_BIN := $(BUILDDIR)/$(MODULE)
 
-INCLUDES :=
-MODULE_COMPILEFLAGS := -W -Wall -Wno-multichar -Wno-unused-parameter -Wno-unused-function -Werror-implicit-function-declaration
+INCLUDES := -I/data/protobuf_2.6/include
+MODULE_COMPILEFLAGS := -g -W -Wall -Wno-multichar -Wno-unused-parameter -Wno-unused-function -Werror-implicit-function-declaration
 MODULE_CFLAGS := --std=c99
 MODULE_CPPFLAGS := --std=c++11 -fexceptions -fno-rtti
 
@@ -46,4 +46,4 @@ include rules.mk
 # the logic to compile and link stuff is in here
 $(TEST_BIN): $(ALLMODULE_OBJS) $(SHARED_LIBS)
 	@echo building $(MODULE)  $@
-	g++ $(ALLMODULE_OBJS) -L$(ROOT)/out/core/src/compiler/libnvdla_compiler libprotobuf.a -lnvdla_compiler -pthread -o $@ libprotobuf.a -Wl,-rpath=.
+	g++ $(ALLMODULE_OBJS) -L$(ROOT)/ -lnvdla_compiler /data/protobuf_2.6/lib/libprotobuf.a  -pthread -o $@ /data/protobuf_2.6/lib/libprotobuf.a  -Wl,-rpath=.

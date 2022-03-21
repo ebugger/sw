@@ -34,7 +34,7 @@ BUILDOUT ?= $(ROOT)/out/core/src/compiler
 BUILDDIR := $(BUILDOUT)/$(MODULE)
 LIB := $(BUILDDIR)/$(MODULE).so
 
-INCLUDES := -I$(ROOT)/external/protobuf-2.6/src
+INCLUDES := -I$(ROOT)/external/protobuf-2.6/src -I/data/protobuf_2.6/include
 MODULE_COMPILEFLAGS := -g -fPIC -finline -W -Wall -Wno-multichar -Wno-unused-parameter -Wno-unused-function -Werror-implicit-function-declaration
 MODULE_CFLAGS := --std=c99 
 MODULE_CPPFLAGS := --std=c++11 -fexceptions -fno-rtti
@@ -46,4 +46,4 @@ include rules.mk
 # the logic to compile and link stuff is in here
 $(LIB): $(ALLMODULE_OBJS)
 	@echo building $(MODULE)  $@
-	g++ -shared libprotobuf.a $(ALLMODULE_OBJS) -o $@
+	g++ -shared /data/protobuf_2.6/lib/libprotobuf.a $(ALLMODULE_OBJS) -o $@

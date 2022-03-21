@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/data/sw/umd/out/apps/compiler/nvdla_compiler/nvdla_compiler",
+            "args": ["-o", "resnet_50_out_wisdom", "--cprecision","int8", "--configtarget","nv_full", "--calibtable", "/data/sw/umd/utils/calibdata/resnet50.json","--prototxt","/data/sw/ResNet-50-deploy.prototxt", "--caffemodel","/data/sw/ResNet-50-model.caffemodel"],
+            "stopAtEntry": false,
+            "cwd": "/data/sw/umd/out/apps/compiler/nvdla_compiler",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+                
+            ]
+        }
+    ]
+}
