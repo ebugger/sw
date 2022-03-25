@@ -658,7 +658,7 @@ public:
             THROW_ERROR(NvDlaError_InvalidState, "check surface release on bogus op?");
         }
 
-        // gLogInfo << "\t\t\tcheck surface release: " << surface->id() << " at node " << m_atNode->id() << endl;
+        gLogInfo << "\t\t\tcheck surface release: " << surface->id() << " at node " << m_atNode->id() << endl;
 
         const engine_ast::Graph::NodeUnorderedSet &consumers = surface->consumers();
         engine_ast::Graph::NodeUnorderedSet::const_iterator

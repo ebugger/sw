@@ -548,7 +548,7 @@ namespace canonical_ast
         }
 
         Graph* clone();
-
+        //设置graph中的node和edge的id
         std::string nextNodeId() { return std::string("n-") + toString(m_next_node_id++); }
         std::string nextEdgeId() { return std::string("e-") + toString(m_next_edge_id++); }
 
@@ -580,7 +580,7 @@ namespace canonical_ast
 
         Node() : m_containing_graph(0)
         {
-            m_unique_id = m_next_id++;
+            m_unique_id = m_next_id++;//内部自增
         }
         virtual ~Node() { }
 
@@ -857,7 +857,7 @@ namespace canonical_ast
         //初始化edge挂载在哪个graph， 以及对应于原网络中的tensor
         Edge() : m_containing_graph(0), m_original_tensor(0)
         {
-            m_unique_id = m_next_id++;
+            m_unique_id = m_next_id++; //edge内部自增
         }
         virtual ~Edge() { }
 

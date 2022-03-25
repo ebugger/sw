@@ -296,8 +296,8 @@ NvDlaError NvDlaMkdir(char *dirname)
     int err;
 
     err = mkdir(dirname, S_IRWXU);
-    if (err != 0)
-        return NvDlaError_FileOperationFailed;
+    // if (err != 0)
+    //     return NvDlaError_FileOperationFailed;
 
     return NvDlaSuccess;
 }

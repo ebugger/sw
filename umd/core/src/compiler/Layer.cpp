@@ -155,7 +155,7 @@ ILayer *LayerFactory::deserializeFrom(WisdomContainerEntry *entry)
  * 
  * @tparam D 是两组pair (ILayer. layer) (Iocnv, Conv)类似的
  */
-template <class D>
+template <class D>  //D~ ConvolutionLayerDiamond for eg.
 class BasePrivDiamondMap
 {
 public:
@@ -165,8 +165,8 @@ public:
      * @param p 
      */
     static void insert(D p)
-    {
-        s_base_priv_diamond_map[p.base().priv()] = p;  //相当于创建了pair(layer, [(ILayer. layer) (Iocnv, Conv)])
+    {   //在parse caffe的时候每创建一个layer的时候都会将layer类型的一个BasePrivDiamond的pair塞进来，方便创建graph node的时候查找
+         s_base_priv_diamond_map[p.base().priv()] = p;  //相当于创建了pair(layer, [(ILayer. layer) (Iocnv, Conv)])
     }
     static D find(typename D::BasePrivType *base_priv)
     {
@@ -178,7 +178,7 @@ public:
         return f->second;
     }
 protected:
-    static std::map<typename D::BasePrivType *, D> s_base_priv_diamond_map;
+    static std::map<typename D::BasePrivType *, D> s_base_priv_diamond_map; // == std::map<Layer *, ConvolutionLayerDiamond > s_base_priv_diamond_map
 };
 
 /**
@@ -313,7 +313,7 @@ LayerFactory::newConvolutionLayer(INetwork * network,
     base_i = derived_i = derived_priv;
     //实际就是创建两组pair， 一组对应基类(Ilayer*, layer*)， 一组对应派生类(Iconv*,Conv*)，
     ConvolutionLayerDiamond d(base_i, base_priv, derived_i, derived_priv);
-    //添加了pair(layer*, [(ILayer*. layer*) (Iocnv*, Conv*)])
+    //添加了pair(layer*, [(ILayer*. layer*) (Iocnv*, Conv*)]) 这是为了后面创建graph的node的时候会来这个Diamond里面查找这个base_priv
     BasePrivDiamondMap<ConvolutionLayerDiamond>::insert( d );
     /*为啥要只把基类插进去到factory里面？
     s_priv和s_self都是一个包含双向map的实例，通过一个成员能找到另外一个成员

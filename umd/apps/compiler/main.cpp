@@ -83,10 +83,10 @@ NvDlaError testSetup(const TestAppArgs* appArgs, TestInfo* i)
         ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "Output path does not exist: \"%s\"", appArgs->outputPath.c_str());
 
     // Clear wisdomPath if any exist
-    removeCmd += "rm -rf " + wisdomPath;
-    ii = std::system(removeCmd.c_str()); // This is pretty awful
-    if (ii != 0)
-        ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "system command failed: \"%s\"", removeCmd.c_str());
+    removeCmd += "rm -rf" + wisdomPath;
+    // ii = std::system(removeCmd.c_str()); // This is pretty awful
+    // if (ii != 0)
+    //     ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "system command failed: \"%s\"", removeCmd.c_str());
 
     PROPAGATE_ERROR_FAIL(NvDlaMkdir(const_cast<char *>(wisdomPath.c_str())));
 

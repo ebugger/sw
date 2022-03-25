@@ -73,7 +73,7 @@ canonical_ast::Node *canonical_ast::newCanonicalNode(Layer *orig_nw_layer)
     switch (original_type)
     {
         case LayerType::kCONVOLUTION: {
-            ConvolutionLayer *conv_layer = LayerFactory::derivedPriv< ConvolutionLayerDiamond >( orig_nw_layer );
+            ConvolutionLayer *conv_layer = LayerFactory::derivedPriv< ConvolutionLayerDiamond >( orig_nw_layer );  //< ConvolutionLayerDiamond >( orig_nw_layer )会被模板函数替换成PrivDiamond::BasePrivType orig_nw_layer
             return canonical_ast::NodeFactory::newConvNode(conv_layer);
           }
         case LayerType::kFULLY_CONNECTED: {
@@ -251,7 +251,7 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
             Tensor* can_tensor = 0;
             if ( f == tensor_edge.end() ) //找不到原网络tensor的话添加tensor和edge的对应pair到map
             {
-                can_edge = new canonical_ast::Edge();//找不到原网络tensor的话添加tensor和edge的对应pair到map
+                can_edge = new canonical_ast::Edge();//找不到原网络tensor的话添加tensor和edge的对应pair到map， 更新一个edge类型的自增的id
                 can_edge->setGraph(graph);//挂载graph
 
                 //复制-脱离-设置属性
@@ -260,7 +260,7 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
                 can_tensor->setTensorType(TensorType::kIO);  //中间结果的属性是在两个OP之间传递的
 
                 //递增顺序-挂载tensor-更新graph
-                can_edge->setId(graph->nextEdgeId());   //graph 中的edge_idx++
+                can_edge->setId(graph->nextEdgeId());   //graph 中唯一的m_next_edge_id，
                 can_edge->setOriginalTensor(can_tensor);
                 graph->insertEdge(can_edge); //添加edge和compareFn的pair到graph里面的一个set(排好序的)
 
@@ -281,7 +281,7 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
                         //只判断tensor的地址是否和网络的输入相同
                     if ( nw_tensor == network_inputs[iti] )
                     {
-                        // gLogInfo << " identified input edge: " << (int)iti << " tensor id " << tensor->getName() << endl;
+                        gLogInfo << " identified input edge: " << (int)iti << " tensor id " << nw_tensor->getName() << endl;
                         //更新graph的input_edges的vector
                         input_edges[iti] = can_edge;
                         //通过原网络tensor找到通用tensor，然后更新通用tensor的属性为input
@@ -299,7 +299,7 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
                 {
                     if ( nw_tensor == network_outputs[oti] )
                     {
-                        // gLogInfo << " identified output edge: " << (int)oti << " tensor id " << tensor->getName() << endl;
+                        gLogInfo << " identified output edge: " << (int)oti << " tensor id " << nw_tensor->getName() << endl;
                         output_edges[oti] = can_edge;
                         can_tensor = nw_tensor_to_can_tensor[nw_tensor];
                         can_tensor->setTensorType(TensorType::kNW_OUTPUT);

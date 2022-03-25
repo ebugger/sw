@@ -756,7 +756,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
     {
         set<Node *> uniqHazardNodes;
 
-        // gLogInfo << "hazard: resolveDataDependencies sees " << output_hazard_edges.size() << " hazards" << endl;
+        gLogInfo << "hazard: resolveDataDependencies sees " << hazardEdges.size() << " hazards" << endl;
         //        gLogInfo << "hazard: this depends on that: " << endl;
 
         for ( size_t hei = 0, HEI = hazardEdges.size(); hei != HEI; ++hei )
@@ -776,7 +776,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
     if ( hazardNodes.size() )
     {
 
-        // gLogInfo << "rdd hazard: found " << hazardNodes.size() << " hazard nodes downstream" << endl;
+        gLogInfo << "rdd hazard: found " << hazardNodes.size() << " hazard nodes downstream" << endl;
         // each of these represents a memory hazard.  if we happen to be on the same unit there's
         // no actual problem.  check that.
 

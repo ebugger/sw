@@ -967,22 +967,22 @@ public:
     surface::TensorSurfaceDesc *nodeInputTensorSurface(const Node *, size_t i, const std::vector<surface::SurfaceCategory> &);
     surface::TensorSurfaceDesc *nodeOutputTensorSurface(const Node *, size_t i, const std::vector<surface::SurfaceCategory> &);
 
-    inline bool debugGraphDump() const { return false; }
-    inline bool debugClone() const { return false; }
-    inline bool debugOps() const { return false; }
-    inline bool debugGroupOps() const { return false; }
-    inline bool debugMathOptz() const { return false; }
-    inline bool debugWeights() const { return false; }
-    inline bool debugQuantization() const { return false; }
-    inline bool debugFuseSubEngineOps() const { return false; }
-    inline bool debugSurfaces() const { return false; }
-    inline bool debugBuffers() const { return false; }
-    inline bool debugCopyOutDebug() const { return false; }
-    inline bool debugMemoryLayout() const { return false; }
-    inline bool debugBinding() const { return false; }
-    inline bool debugDepGraph() const { return false; }
-    inline bool debugMemHazards() const { return false; }
-    inline bool debugRelocs() const { return false; }
+    inline bool debugGraphDump() const { return true; }
+    inline bool debugClone() const { return true; }
+    inline bool debugOps() const { return true; }
+    inline bool debugGroupOps() const { return true; }
+    inline bool debugMathOptz() const { return true; }
+    inline bool debugWeights() const { return true; }
+    inline bool debugQuantization() const { return true; }
+    inline bool debugFuseSubEngineOps() const { return true; }
+    inline bool debugSurfaces() const { return true; }
+    inline bool debugBuffers() const { return true; }
+    inline bool debugCopyOutDebug() const { return true; }
+    inline bool debugMemoryLayout() const { return true; }
+    inline bool debugBinding() const { return true; }
+    inline bool debugDepGraph() const { return true; }
+    inline bool debugMemHazards() const { return true; }
+    inline bool debugRelocs() const { return true; }
 
     class Graphlet
     {

@@ -139,8 +139,8 @@ NvDlaError engine_ast::SDPSuperOpNode::populateEdgePorts()
 {
     NvDlaError e = NvDlaSuccess;
 
-    //gLogInfo << name() << " : populateEdgePorts: " << endl;
-    //printSdpXEdgeMap();
+    gLogInfo << name() << " : populateEdgePorts: " << endl;
+    printSdpXEdgeMap();
 
     EdgeSequence inputEdges = graph()->upstreamDataEdges(this);
     EdgeSequence outputEdges = graph()->downstreamDataEdges(this);
@@ -265,8 +265,8 @@ NvDlaError engine_ast::SDPSuperOpNode::verifyEdgePorts()
 {
     NvDlaError e = NvDlaSuccess;
 
-    //gLogInfo << name() << " : verifyEdgePorts: " << endl;
-    //printSdpXEdgeMap();
+    gLogInfo << name() << " : verifyEdgePorts: " << endl;
+    printSdpXEdgeMap();
 
     if (    (inputEdges().size() != 1) ||
             (auxEdges().size() != m_sdpXengineToAuxEdgeMap.size()) ||

@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "/data/sw/umd/out/apps/compiler/nvdla_compiler/nvdla_compiler",
-            "args": ["-o", "resnet_50_out_wisdom", "--cprecision","int8", "--configtarget","nv_full", "--calibtable", "/data/sw/umd/utils/calibdata/resnet50.json","--prototxt","/data/sw/ResNet-50-deploy.prototxt", "--caffemodel","/data/sw/ResNet-50-model.caffemodel"],
+            "args": ["-o", "resnet_50_out_wisdom", "--profile", "default","--cprecision","int8", "--configtarget","nv_full", "--calibtable", "/data/sw/umd/utils/calibdata/resnet50.json","--prototxt","/data/sw/ResNet-50-deploy.prototxt", "--caffemodel","/data/sw/ResNet-50-model.caffemodel"],
             "stopAtEntry": false,
             "cwd": "/data/sw/umd/out/apps/compiler/nvdla_compiler",
             "environment": [],

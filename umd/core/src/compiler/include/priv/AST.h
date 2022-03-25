@@ -180,7 +180,8 @@ public:
     {
         std::stringstream ss;
         const char * state_names[] = { "und", "dis", "fab", "fin" };
-        ss << "s=" << state_names[int(m_e)] << " dis=" << m_discovered << " fab=" << m_finishable << " fin=" << m_finished;
+        ss << state_names[int(m_e)] << " dis=" << m_discovered << " fab=" << m_finishable << " fin=" << m_finished;
+        //ss << "s=" << state_names[int(m_e)] << " dis=" << m_discovered << " fab=" << m_finishable << " fin=" << m_finished;
         return ss.str();
     }
 
@@ -366,14 +367,14 @@ public:
     //
     EdgeScoresIterator fetchEdgeScore(int time, Edge *edge)
     {
-        // gLogInfo << __func__ << " edge=" << edge->id() << std::endl;
+        gLogInfo << "\t\t"<< __func__ << " in m_edge_score edge=" << edge->id()<<"/" <<edge->originalTensor()->getName()<< std::endl;
         EdgeScoresIterator f_i = findEdge(edge);
         if ( f_i == edgeEnd() )
         {
             std::pair<EdgeScoresIterator, bool> inserted =
                 insertEdge(std::pair<Edge *, GraphTraversalState>(edge, GraphTraversalState()));
             f_i = inserted.first;
-            f_i->second.setDiscovered(time);
+            f_i->second.setDiscovered(time);gLogInfo <<" \t\t\t->.<- not fund ,insert to it with discoverd id:" <<time << std::endl;
         }
         return f_i;
     }
@@ -381,15 +382,15 @@ public:
 
     NodeScoresIterator fetchNodeScore(int time, Node *node)
     {
-        // gLogInfo << __func__ << " node=" << node->id() << std::endl;
+        gLogInfo <<"\t" <<__func__ << " in m_node_score, node=" << node->id() << "/" <<node->name()<<std::endl;
         NodeScoresIterator f_i = findNode(node);
         if ( f_i == nodeEnd() )
         {
             std::pair<NodeScoresIterator, bool> inserted =
                 insertNode(std::pair<Node *, GraphTraversalState>(node, GraphTraversalState()));
             f_i = inserted.first;
-            f_i->second.setDiscovered(time);
-        }
+            f_i->second.setDiscovered(time); gLogInfo << " \t\t->.< not fund ,insert to it with discoverd id:" <<time << std::endl;
+        } //else {gLogInfo << " \tfund it" << std::endl}
         return f_i;
     }
 
@@ -400,7 +401,7 @@ public:
     {
         Elem elem(node, 0);
         ElemScoresIterator f_i = findElem( elem );
-        // gLogInfo << __func__ << " node=" << node->id() << std::endl;
+        gLogInfo << __func__ << " node=" << node->id() << std::endl;
         if ( f_i == elemEnd() )
         {
             insertElem(std::pair<Elem, Score>(elem, score));
@@ -408,13 +409,14 @@ public:
         return f_i;
     }
 
-    ElemScoresIterator fetchElemScore(Edge *edge, Score score)
+    ElemScoresIterator fetchElemScore(Edge *edge, Score score) 
     {
-        Elem elem(0, edge);
+        Elem elem(0, edge); //Elem is <node*, edge*> pair
         ElemScoresIterator f_i = findElem( elem );
-        // gLogInfo << __func__ << " node=" << node->id() << std::endl;
+        gLogInfo << __func__ << "with an empty node Elem(node*, edge*)pair" << std::endl;
         if ( f_i == elemEnd() )
         {
+            gLogInfo <<" \t->.<- ElemScore not found, insert into m_elem_score." << std::endl;
             insertElem(std::pair<Elem, Score>(elem, score));
         }
         return f_i;
@@ -427,7 +429,7 @@ public:
     //
     EdgeScoresIterator evaluateEdgeScore(int time, Edge *edge)
     {
-        // gLogInfo << __func__ << " edge=" << edge->id() << std::endl;
+        gLogInfo << __func__ << " for edge=" << edge->id() <<"/"<<edge->originalTensor()->getName()<< std::endl;
         EdgeScoresIterator edge_score_i;
         NodeSequence up_nodes;
 
@@ -435,7 +437,7 @@ public:
 
         if ( edge_score_i->second.isFinished() )
         {
-            return edge_score_i;
+            gLogInfo << " edge score state is finished so no need upstream...." << std::endl;  return edge_score_i;
         }
 
         up_nodes = m_graph->upstreamNodes(edge);//首次网络input的edge为0 
@@ -443,12 +445,12 @@ public:
         bool all_nodes_finished = true; // note: edges w/o upstream nodes are finishable at 0...
         int nodes_finishable_time = 0;
         int nodes_finished_time   = 0;
-
+        gLogInfo << " \t\tget upstream node#" <<up_nodes.size()<< " and " ;
         for ( size_t un_i = 0, UN_I = up_nodes.size(); un_i != UN_I; ++un_i )
         {
             Node *up_node = up_nodes[un_i];
             NodeScoresIterator node_score_i;
-
+            gLogInfo << "\t";
             node_score_i = fetchNodeScore(time, up_node);
 
             all_nodes_finished = all_nodes_finished && node_score_i->second.isFinished();
@@ -461,7 +463,8 @@ public:
             edge_score_i->second.setFinishable(nodes_finishable_time); // := same as node finishable
             edge_score_i->second.setFinished(nodes_finished_time); // := same as node finish
 
-            /gLogInfo << "finish edge=" << edge_score_i->first->id() << " score=" << edge_score_i->second.toString() << std::endl;
+            gLogInfo << "no up node found, so finish edge=" << edge_score_i->first->id() << " score=" << edge_score_i->second.toString() << std::endl;
+            gLogInfo << " \t\t";
             fetchElemScore(edge_score_i->first, edge_score_i->second);
         }
 
@@ -475,14 +478,14 @@ public:
     //
     NodeScoresIterator evaluateNodeScore(int time, Node *node)
     {
-        // gLogInfo << __func__ << " node=" << node->id() << std::endl;
+        gLogInfo << __func__ << " node=" << node->id() << "name="<<node->name()<< std::endl;
         NodeScoresIterator node_score_i;
 
         node_score_i = fetchNodeScore(time, node);
 
         if ( node_score_i->second.isFinished() )
         {
-            return node_score_i;
+            gLogInfo << " node score state is finished so no need upstream...." << std::endl;  return node_score_i;
         }
 
         // input edges
@@ -490,7 +493,7 @@ public:
 
         bool all_up_edges_finishable = true; // nodes w/o upstream edges are finishable.向上是可以存在没有edge的情况的
         int all_up_edges_finishable_time = 0;
-
+        gLogInfo << " \tget upstream edge#"<<up_edges.size() << " and ";
         for (EdgeSequenceIterator ue_i = up_edges.begin(); all_up_edges_finishable && (ue_i != up_edges.end()); ++ue_i )
         {
             EdgeScoresIterator up_edge_score_i;
@@ -504,6 +507,7 @@ public:
         if ( all_up_edges_finishable )
         {
             node_score_i->second.setFinishable(all_up_edges_finishable_time + 1); // := last edge completion + 1
+            gLogInfo << "finishable Node=" << node_score_i->first->name() << " score=" << node_score_i->second.toString() << std::endl;
         }
 
         return node_score_i;
@@ -532,13 +536,13 @@ public:
             if ( edge_score_i->second.isFinishable() ) // implies !edge_score_i->second.isFinished() )
             {
                 edge_score_i->second.setFinished(t);
-                // gLogInfo << "at node=" << ptr.node()->id() << " finish edge=" << (*up_i)->id() << " score=" << edge_score_i->second.toString() << std::endl;
+                gLogInfo << "at node=" << ptr.node()->id() << " finish edge=" << (*up_i)->id() << " score=" << edge_score_i->second.toString() << std::endl;
                 fetchElemScore(edge_score_i->first, edge_score_i->second);
             }
         }
 
         NodeScoresIterator score_i = fetchNodeScore(t, ptr.node());
-        score_i->second.setFinished(t+1);
+        score_i->second.setFinished(t+1);  gLogInfo <<"finished node=" <<score_i->first->name()<<" score=" << score_i->second.toString() <<std::endl;
         ptr.setState(score_i->second);
 
         fetchElemScore(score_i->first, score_i->second);
@@ -626,7 +630,7 @@ public:
         typename EdgeSequence::const_iterator ie_i;  //const_iterator vector迭代器的指向不能变，但指向的对象的值可以改变 
         std::list<GraphTraversalPointer<G>> pointer_list;   //在scoreorder创建过程中 临时存在的一个list， 只通过pushback更新
 
-        // gLogInfo << "generating scoreboard." << std::endl;
+        gLogInfo << "generating scoreboard." << std::endl;
 
         if ( !m_graph ) {
             ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "missing graph");
@@ -667,7 +671,7 @@ public:
 
         while ( pointer_list.size() )
         {
-            // helper predicate
+            // helper predicate // a predicate implemented as a class in list remove_if
             struct GraphTraversalPointer_is_Finished
             {
                 bool operator() (const GraphTraversalPointer<G> & tptr) { return tptr.state().isFinished(); }
@@ -678,7 +682,7 @@ public:
             //
             typename std::list<GraphTraversalPointer<G>>::iterator finishable_i;
 
-            finishable_i = pointer_list.end();
+            finishable_i = pointer_list.end();// list::end()是过了最后一个元素的位置，所以引用时没意义的
 
             for ( typename std::list<GraphTraversalPointer<G>>::iterator p_i = pointer_list.begin();
                   p_i != pointer_list.end();
@@ -706,7 +710,7 @@ public:
             }
 
             //
-            // something should be finishable every time through this list
+            // something should be finishable every time through this list 所有node都轮询完毕
             //
             if ( finishable_i == pointer_list.end() )
             {
@@ -837,8 +841,8 @@ protected:
 
             if ( i_eq_j )
             {
-                // gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
-                //     (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
+                gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
+                     (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
 
                 // nodes before edges if otherwise equal
                 if ( i->first.first && j->first.second )
@@ -851,8 +855,8 @@ protected:
                     // i_eq_j = false;
                 }
             }
-            // gLogInfo << "elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
-            //     (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
+            gLogInfo << "elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
+                 (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
 
             return i_lt_j;
         }
@@ -865,7 +869,7 @@ protected:
         bool operator() (NodeScoresIterator i, NodeScoresIterator j)
         {
             bool i_lt_j = i->second < j->second;
-            // gLogInfo << "node i [" << i->second.toString() << "] < j[" << j->second.toString() << "] = " << i_lt_j << std::endl;
+            gLogInfo << "node i [" << i->second.toString() << "] < j[" << j->second.toString() << "] = " << i_lt_j << std::endl;
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;
@@ -877,7 +881,7 @@ protected:
         bool operator() (EdgeScoresIterator i, EdgeScoresIterator j)
         {
             bool i_lt_j = i->second < j->second;
-            // gLogInfo << "edge i [" << i->second.toString() << "] < j[" << j->second.toString() << "] = " << i_lt_j << std::endl;
+            gLogInfo << "edge i [" << i->second.toString() << "] < j[" << j->second.toString() << "] = " << i_lt_j << std::endl;
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;
@@ -897,7 +901,7 @@ protected:
         EdgeScoresIterator edge_score_i;
         ElemScoresIterator elem_score_i;
 
-        // gLogInfo << "sorting graph" << std::endl;
+        gLogInfo << "sorting graph" << std::endl;
 
         for ( node_score_i = m_scores.nodeBegin(); node_score_i != m_scores.nodeEnd(); ++node_score_i ) {
             m_node_score_order.push_back(node_score_i);
