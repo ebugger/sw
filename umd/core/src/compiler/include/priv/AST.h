@@ -401,9 +401,10 @@ public:
     {
         Elem elem(node, 0);
         ElemScoresIterator f_i = findElem( elem );
-        gLogInfo << __func__ << " node=" << node->id() << std::endl;
+        gLogInfo << __func__ << " node=" << node->id() << "with an empty edge Elem(node*, edge*)pair" <<std::endl;
         if ( f_i == elemEnd() )
         {
+            gLogInfo <<" \t\t->.<- ElemScore not found, insert into m_elem_score with \"empty\" edge." << std::endl;
             insertElem(std::pair<Elem, Score>(elem, score));
         }
         return f_i;
@@ -416,7 +417,7 @@ public:
         gLogInfo << __func__ << "with an empty node Elem(node*, edge*)pair" << std::endl;
         if ( f_i == elemEnd() )
         {
-            gLogInfo <<" \t->.<- ElemScore not found, insert into m_elem_score." << std::endl;
+            gLogInfo <<" \t\t->.<- ElemScore not found, insert into m_elem_score with \"empty\" node." << std::endl;
             insertElem(std::pair<Elem, Score>(elem, score));
         }
         return f_i;
@@ -437,7 +438,7 @@ public:
 
         if ( edge_score_i->second.isFinished() )
         {
-            gLogInfo << " edge score state is finished so no need upstream...." << std::endl;  return edge_score_i;
+            gLogInfo << " edge score state is finished so no need upstream and return edge score...." << std::endl;  return edge_score_i;
         }
 
         up_nodes = m_graph->upstreamNodes(edge);//首次网络input的edge为0 
@@ -445,7 +446,7 @@ public:
         bool all_nodes_finished = true; // note: edges w/o upstream nodes are finishable at 0...
         int nodes_finishable_time = 0;
         int nodes_finished_time   = 0;
-        gLogInfo << " \t\tget upstream node#" <<up_nodes.size()<< " and " ;
+        gLogInfo << " \t\tget total ↑node numbers: " <<up_nodes.size()<< " so " ;
         for ( size_t un_i = 0, UN_I = up_nodes.size(); un_i != UN_I; ++un_i )
         {
             Node *up_node = up_nodes[un_i];
@@ -463,7 +464,7 @@ public:
             edge_score_i->second.setFinishable(nodes_finishable_time); // := same as node finishable
             edge_score_i->second.setFinished(nodes_finished_time); // := same as node finish
 
-            gLogInfo << "no up node found, so finish edge=" << edge_score_i->first->id() << " score=" << edge_score_i->second.toString() << std::endl;
+            gLogInfo << "\tall up nodes finished, so finish edge=" << edge_score_i->first->id() << " score=" << edge_score_i->second.toString() << std::endl;
             gLogInfo << " \t\t";
             fetchElemScore(edge_score_i->first, edge_score_i->second);
         }
@@ -493,7 +494,7 @@ public:
 
         bool all_up_edges_finishable = true; // nodes w/o upstream edges are finishable.向上是可以存在没有edge的情况的
         int all_up_edges_finishable_time = 0;
-        gLogInfo << " \tget upstream edge#"<<up_edges.size() << " and ";
+        gLogInfo << " \tget total ↑edges: "<<up_edges.size() << " and ";
         for (EdgeSequenceIterator ue_i = up_edges.begin(); all_up_edges_finishable && (ue_i != up_edges.end()); ++ue_i )
         {
             EdgeScoresIterator up_edge_score_i;
@@ -507,7 +508,7 @@ public:
         if ( all_up_edges_finishable )
         {
             node_score_i->second.setFinishable(all_up_edges_finishable_time + 1); // := last edge completion + 1
-            gLogInfo << "finishable Node=" << node_score_i->first->name() << " score=" << node_score_i->second.toString() << std::endl;
+            gLogInfo << "\tall_up_edges_finishable so finishable Node=" << node_score_i->first->name() << " score=" << node_score_i->second.toString() << std::endl;
         }
 
         return node_score_i;
@@ -528,7 +529,7 @@ public:
     NvDlaError finishNode(GraphTraversalPointer<G> &ptr, int t)
     {
         NvDlaError e = NvDlaError_Success;
-
+        gLogInfo << __FUNCTION__<< ": ↑edge to finish if is finishable."; 
         EdgeSequence up_edges = m_graph->upstreamEdges(ptr.node());
         for ( EdgeSequenceIterator up_i = up_edges.begin(); up_i != up_edges.end(); ++up_i)
         {
@@ -536,13 +537,13 @@ public:
             if ( edge_score_i->second.isFinishable() ) // implies !edge_score_i->second.isFinished() )
             {
                 edge_score_i->second.setFinished(t);
-                gLogInfo << "at node=" << ptr.node()->id() << " finish edge=" << (*up_i)->id() << " score=" << edge_score_i->second.toString() << std::endl;
+                gLogInfo << " at node=" << ptr.node()->id() << " we set from finishable to finish edge=" << (*up_i)->id() << " score=" << edge_score_i->second.toString() << std::endl;
                 fetchElemScore(edge_score_i->first, edge_score_i->second);
             }
         }
-
+ 
         NodeScoresIterator score_i = fetchNodeScore(t, ptr.node());
-        score_i->second.setFinished(t+1);  gLogInfo <<"finished node=" <<score_i->first->name()<<" score=" << score_i->second.toString() <<std::endl;
+        score_i->second.setFinished(t+1);  gLogInfo <<" finished node=" <<score_i->first->name()<<" score=" << score_i->second.toString() <<std::endl;
         ptr.setState(score_i->second);
 
         fetchElemScore(score_i->first, score_i->second);
@@ -682,7 +683,7 @@ public:
             //
             typename std::list<GraphTraversalPointer<G>>::iterator finishable_i;
 
-            finishable_i = pointer_list.end();// list::end()是过了最后一个元素的位置，所以引用时没意义的
+            finishable_i = pointer_list.end();gLogInfo << "◯->initial finishable iter to past the last element of the GTP list with size:"<< pointer_list.size()<< std::endl;// list::end()是过了最后一个元素的位置，所以引用时没意义的
 
             for ( typename std::list<GraphTraversalPointer<G>>::iterator p_i = pointer_list.begin();
                   p_i != pointer_list.end();
@@ -694,7 +695,7 @@ public:
 
                 if ( check_score_i->second.isFinishable() && (finishable_i == pointer_list.end() ) )
                 {
-                    finishable_i = p_i;
+                    finishable_i = p_i;gLogInfo << "update finishable iter to GTP(<->current node)"<<p_i->node()->name() <<" and ready to finish this node" << std::endl;
                 }
             }
 
@@ -721,11 +722,11 @@ public:
             GraphTraversalPointer<G> &ptr = *finishable_i;
 
            //
-            // finish and advance downstream
+            // finish and advance downstream 先从上的edge再回来到自身node， 结束后才开始向下寻找edge,然后找到edge下级的node作为下一个循环的开始
             //
             m_scores.finishNode(ptr, time);
             time++; 
-
+            gLogInfo <<"↓edges, also make sure no dangling edges" << std::endl;
             //
             // if there's more than one downstream node then add to the pointer list.
             // but add next to this one so stable-ish ordering is maintained.
@@ -741,8 +742,8 @@ public:
 
                 // make sure any downstream dangling (no output nodes) edges get finished
                 m_scores.evaluateEdgeScore(time, down_edge);
-
-                // for each downstream node on the (multi-)edge...
+                gLogInfo <<"\t↓nodes, insert node numbers:"<<down_nodes.size()<<" to down nodes list ONCE if existed." << std::endl;
+                // for each downstream node on the (multi-)edge...如果一个node下面挂了多个edge就要处理这些edges下面的node
                 for ( size_t ni = 0, NI = down_nodes.size(); ni != NI; ++ni ) {
                     Node *down_node = down_nodes[ni];
 
@@ -751,12 +752,12 @@ public:
                     {
                         advance_nodes.push_back(down_node);
                     }
-                }
-            }
+                }//end of收集处理一个edge下挂多个node
+            }//end of收集处理一个node下挂的多个edge
 
             if ( advance_nodes.size() )
             {
-#if 0
+#if 1
                 gLogInfo << "\tadvance nodes:";
                 for ( size_t ai = 0, AI = advance_nodes.size(); ai != AI; ++ai ) {
                     gLogInfo << "[" << advance_nodes[ai]->id() << "] ";
@@ -767,22 +768,23 @@ public:
                 //
                 // the first of these can be followed by our current pointer.  the rest should be inserted.
                 // do the insertion in reverse so we can just use finishable_i as the insertion point.
-                //
+                //finishable_i之前指向原node,现在指向后一个位置,然后一直在这个位置插入元素，而由于是倒序插入，所以最终这个list是个正向的
                 int new_pointers = advance_nodes.size();
                 typename std::list<GraphTraversalPointer<G>>::iterator insertion_point = ++finishable_i;
 
                 for ( int new_pointer_i = new_pointers - 1; new_pointer_i > 0; --new_pointer_i )
                 {
+                     gLogInfo << "\t\t insert Multi down node to GTP list with reverse order: "<<advance_nodes[new_pointer_i]->name()<<std::endl;
                     pointer_list.insert( insertion_point, GraphTraversalPointer<G>(m_graph, advance_nodes[new_pointer_i] ) );
                 }
-                ptr.setNode(advance_nodes[0]); // we'll reevaluate next time through...
-            }
+                ptr.setNode(advance_nodes[0]); // we'll reevaluate next time through...把下级的状态传递到当前的node(iter指向的)？
+            }//end of 如果收集到下级的node
 
-#if 0
-            gLogInfo << "\t ptr list: ";
+#if 1
+            gLogInfo << "◯<-\t ptr(GTP) list: ";
             for ( typename std::list<GraphTraversalPointer<G>>::iterator ai = pointer_list.begin(); ai != pointer_list.end(); ++ai )
             {
-                gLogInfo << "[" << ai->node()->id() << "] ";
+                gLogInfo << "[" << ai->node()->id() <<  "/" << ai->node()->name()<< "] ";
             }
             gLogInfo << std::endl;
 #endif
