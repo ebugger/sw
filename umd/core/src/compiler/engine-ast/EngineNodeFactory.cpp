@@ -146,7 +146,7 @@ engine_ast::ConvCoreConvolutionOpNode* engine_ast::NodeFactory::newConvCoreConvo
     b = dd = new engine_ast::ConvCoreConvolutionOpNode(origCanNode, numBatches);
     dd->setId(engGraph->nextNodeId());
     dd->setGraph(engGraph);
-    dd->captureCanonicalParams();
+    dd->captureCanonicalParams(); //把con的node信息同步到conv_engine里面,同时为weights创建新的tensor,同步创建edge作为数据edge再挂载到eng graph的node类里面
     engGraph->insertNode(b);
 
     // determine op mode for the conv op: DC / WINOGRAD

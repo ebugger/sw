@@ -479,7 +479,7 @@ public:
     //
     NodeScoresIterator evaluateNodeScore(int time, Node *node)
     {
-        gLogInfo << __func__ << " node=" << node->id() << "name="<<node->name()<< std::endl;
+        gLogInfo << __func__ << " node=" << node->id() << " name="<<node->name()<< std::endl;
         NodeScoresIterator node_score_i;
 
         node_score_i = fetchNodeScore(time, node);
@@ -529,7 +529,7 @@ public:
     NvDlaError finishNode(GraphTraversalPointer<G> &ptr, int t)
     {
         NvDlaError e = NvDlaError_Success;
-        gLogInfo << __FUNCTION__<< ": ↑edge to finish if is finishable."; 
+        gLogInfo << __FUNCTION__<< ":"<<ptr.node()->name()<<" ↑edge to finish if is finishable."; 
         EdgeSequence up_edges = m_graph->upstreamEdges(ptr.node());
         for ( EdgeSequenceIterator up_i = up_edges.begin(); up_i != up_edges.end(); ++up_i)
         {
@@ -675,7 +675,11 @@ public:
             // helper predicate // a predicate implemented as a class in list remove_if
             struct GraphTraversalPointer_is_Finished
             {
-                bool operator() (const GraphTraversalPointer<G> & tptr) { return tptr.state().isFinished(); }
+                bool operator() (const GraphTraversalPointer<G> & tptr) { 
+                    if(tptr.state().isFinished()) { //当GTP有两个相同的node， 第一个继续往下后(也就是处理完当前这个相同的)，再检查剩下的这个就会发现已经finished了，所以直接删掉
+                        gLogInfo <<"  *remove GTP "<<tptr.node()->name()<<" as it's finished " << std::endl;
+                        }
+                    return tptr.state().isFinished(); }
             };
 
             //
@@ -690,10 +694,10 @@ public:
                   ++p_i)
             {
                 NodeScoresIterator check_score_i;
-
+                gLogInfo <<"-------"<<std::endl;
                 check_score_i = m_scores.evaluateScore(*p_i, time);
 
-                if ( check_score_i->second.isFinishable() && (finishable_i == pointer_list.end() ) )
+                if ( check_score_i->second.isFinishable() && (finishable_i == pointer_list.end() ) )//下面执行一次后finishable_i指向有意义的元素， 而不是尾部，所以下一次不会在执行了。
                 {
                     finishable_i = p_i;gLogInfo << "update finishable iter to GTP(<->current node)"<<p_i->node()->name() <<" and ready to finish this node" << std::endl;
                 }
@@ -777,7 +781,7 @@ public:
                      gLogInfo << "\t\t insert Multi down node to GTP list with reverse order: "<<advance_nodes[new_pointer_i]->name()<<std::endl;
                     pointer_list.insert( insertion_point, GraphTraversalPointer<G>(m_graph, advance_nodes[new_pointer_i] ) );
                 }
-                ptr.setNode(advance_nodes[0]); // we'll reevaluate next time through...把下级的状态传递到当前的node(iter指向的)？
+                ptr.setNode(advance_nodes[0]); // we'll reevaluate next time through...把下级的状态传递到当前的node(iter指向的),也就是把gtp list的首元素更新，可能还有多余的分支，继续保留
             }//end of 如果收集到下级的node
 
 #if 1
@@ -789,8 +793,7 @@ public:
             gLogInfo << std::endl;
 #endif
         } // while path pointers exist
-
-
+      
         sort();
 
     fail:
@@ -895,20 +898,29 @@ protected:
         EdgeScoreSorter edge_score_sorter(m_scores);
         ElemScoreSorter elem_score_sorter(m_scores);
 
-        m_node_score_order.clear();
+        m_node_score_order.clear(); //std::vector<NodeScoresIterator>
         m_edge_score_order.clear();
         m_elem_score_order.clear();
 
-        NodeScoresIterator node_score_i;
+        NodeScoresIterator node_score_i; //std::map<Node *, Score, typename G::nodeCompareFn>
         EdgeScoresIterator edge_score_i;
         ElemScoresIterator elem_score_i;
 
         gLogInfo << "sorting graph" << std::endl;
-
+        //注意是copy的iter，而不是原始值(没有解引用)
         for ( node_score_i = m_scores.nodeBegin(); node_score_i != m_scores.nodeEnd(); ++node_score_i ) {
             m_node_score_order.push_back(node_score_i);
         }
-
+#if 1
+        //gLogInfo << "m_node_order" << &m_node_order << std::endl;
+        gLogInfo << "m_node_order before sort" << std::endl;
+        // for ( node_score_i = m_node_score_order.begin(); node_score_i != m_node_score_order.end(); ++node_score_i ) {
+        //     gLogInfo << "\t\tsc=[" << node_score_i->second.toString() << "]" << std::endl;
+        // }
+        for (int i = 0; i != m_node_score_order.size(); ++i ) {
+            gLogInfo << m_node_score_order[i]->first->name()<< "\t\t "<<"sc=[" << m_node_score_order[i]->second.toString() << "]" << std::endl;
+        }
+#endif
         for ( edge_score_i = m_scores.edgeBegin(); edge_score_i != m_scores.edgeEnd(); ++edge_score_i ) {
             m_edge_score_order.push_back(edge_score_i);
         }
@@ -921,10 +933,14 @@ protected:
         std::sort(m_edge_score_order.begin(), m_edge_score_order.end(), edge_score_sorter);
         std::sort(m_elem_score_order.begin(), m_elem_score_order.end(), elem_score_sorter);
 
-#if 0
-        gLogInfo << "m_node_order" << &m_node_order << std::endl;
-        for ( node_score_i = m_node_order.begin(); node_score_i != m_node_order.end(); ++node_score_i ) {
-            gLogInfo << "\t\tsc=[" << node_score_i->second.toString() << "]" << std::endl;
+#if 1
+        //gLogInfo << "m_node_order" << &m_node_order << std::endl;
+        gLogInfo << "m_node_order after sort" << std::endl;
+        // for ( node_score_i = m_node_score_order.begin(); node_score_i != m_node_score_order.end(); ++node_score_i ) {
+        //     gLogInfo << "\t\tsc=[" << node_score_i->second.toString() << "]" << std::endl;
+        // }
+        for ( node_score_i = m_scores.nodeBegin(); node_score_i != m_scores.nodeEnd(); ++node_score_i ) {
+            gLogInfo << node_score_i->first->name()<< "\t\t "<<"sc=[" << node_score_i->second.toString() << "]" << std::endl;
         }
 #endif
 

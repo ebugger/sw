@@ -65,7 +65,7 @@ static inline NvU32 roundUp(NvU32 numToRound, NvU32 multiple)
 
 static NvDlaError construct(NvDlaBitBinaryTreeInst* self, NvU8 numLevels)
 {
-    //NvDlaDebugPrintf("NvDlaBitBinaryTree::construct called %u levels\n", numLevels);
+    NvDlaDebugPrintf("NvDlaBitBinaryTree::construct called %u levels\n", numLevels);
     if (!self || numLevels == 0 || numLevels > 31)
     {
         ORIGINATE_ERROR(NvDlaError_BadParameter);
@@ -79,12 +79,12 @@ static NvDlaError construct(NvDlaBitBinaryTreeInst* self, NvU8 numLevels)
         numElements += pow2i(ii);
     }
 
-    //NvDlaDebugPrintf("BinaryBitTree(%u levels, %u elements) ", numLevels, numElements);
+    NvDlaDebugPrintf("BinaryBitTree(%u levels, %u elements) ", numLevels, numElements);
 
     // Calculate number of bytes required
     NvU32 numBytes = roundUp(numElements, 8) / 8;
 
-    //NvDlaDebugPrintf("=> %uB\n", numBytes);
+    NvDlaDebugPrintf("=> %uB\n", numBytes);
 
     self->treeStorage = (NvU8*)malloc(numBytes);
     if (!self->treeStorage)

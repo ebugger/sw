@@ -65,7 +65,7 @@ struct NvDlaBuddyAllocInst
     NvU8 maxElementSizeLog2;
     NvU8 minElementSizeLog2;
 
-    NvDlaFreeBlock* freeHead[NVDLA_UTILS_BUDDY_ALLOC_MAX_NUM_BLOCKTYPE];
+    NvDlaFreeBlock* freeHead[NVDLA_UTILS_BUDDY_ALLOC_MAX_NUM_BLOCKTYPE];//指针数组
 
     NvDlaBitBinaryTreeInst* fxfData;
     NvDlaBitBinaryTreeInst* splitData;

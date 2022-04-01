@@ -1160,7 +1160,7 @@ public:
     DependencyParams() : m_annotation_id(-1), m_fused_nodes(NodeSequence())
     {
         // init null initialized fused node array of fixed size
-        m_fused_nodes = NodeSequence(IODirection::num_elements(), NULL);
+        m_fused_nodes = NodeSequence(IODirection::num_elements(), NULL); //in/out/unknown
 
         // init null initialized producer and consumer arrays of fixed sizes
         m_consumers = std::vector<BindNode>(EngineType::num_elements(), BindNode());

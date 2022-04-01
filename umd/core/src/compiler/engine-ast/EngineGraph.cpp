@@ -86,15 +86,15 @@ engine_ast::Graph::Graph(const engine_ast::Graph &other_g) :
     NvDlaError e = NvDlaSuccess; // for throw macro
     THROW_ERROR(NvDlaError_InvalidState);
 }
-
+//https://www.geeksforgeeks.org/buddy-memory-allocation-program-set-1-allocation/?ref=lbp
 //----------------------------------------------------------------------
 //                           Generic Graph Utils
 //----------------------------------------------------------------------
-
+//为各个pool根据不同的容量配置做二叉树的初始化， buddy system静态分配原则
 NvDlaError engine_ast::Graph::initGraphResources()
 {
     NvDlaError e = NvDlaSuccess;
-    vector<memory::Pool> *memPools = m_resource_mgr.memoryPools();
+    vector<memory::Pool> *memPools = m_resource_mgr.memoryPools(); //初始化三种类型的pool
     // Init all pools
     if ( profile()->useMemPool() )
     {
@@ -673,7 +673,7 @@ engine_ast::Edge *engine_ast::Graph::addDataEdge(canonical_ast::Edge *canEdge, N
 
     edge->setGraph(this);
     edge->setId(nextEdgeId());
-    edge->setDataEdge();
+    edge->setDataEdge();//set edge type as DATA
     if ( origTensor)
     {
         edge->setOriginalTensor(origTensor);

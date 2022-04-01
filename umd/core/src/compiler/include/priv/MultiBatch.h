@@ -47,7 +47,7 @@ public:
     MultiBatchState(NvU16 numBatches)
     {
         m_batch_size = numBatches;
-        m_batch_states = std::vector< StateClass >(numBatches);
+        m_batch_states = std::vector< StateClass >(numBatches);//batch中的每个输入都有一个状态，StateClass对应DependencyParams
     }
     virtual ~MultiBatchState() { }
 

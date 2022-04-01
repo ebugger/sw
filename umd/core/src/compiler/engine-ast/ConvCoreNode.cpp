@@ -118,7 +118,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
     }
 
     // cache the dimensions of output tensor of parent node
-    streamTensor = canGraph->downstreamEdges(origCanNode).at(0)->originalTensor()->clone();
+    streamTensor = canGraph->downstreamEdges(origCanNode).at(0)->originalTensor()->clone(); //把下级的trensor传导到上级
     streamTensor->setTensorType(TensorType::kSTREAM);
 
     // connect either of the sdp nodes to the conv node, using an edge which

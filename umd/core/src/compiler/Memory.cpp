@@ -90,8 +90,9 @@ NvDlaError Pool::init(PoolType pt, NvU64 poolSize, NvU32 minBufferSize)
     m_min_buffer_size = minBufferSize;
     // xxx: try to remove this alloc.  surfaces can do this.
     m_base_addr        = malloc(poolSize);
-    minElementSizeLog2 = floor(log(minBufferSize)/log(2));
-    m_addr_mgr         = new NvDlaBuddyAllocInst;
+    minElementSizeLog2 = floor(log(minBufferSize)/log(2)); //列表的数目， 每个列表追踪管理一个2的幂次的大小的能用的块，比如1，2，4，8，16，32....
+    m_addr_mgr         = new NvDlaBuddyAllocInst;          //比如128k的内存需要8个列表，初始化的时候只有最后一个列表有信息，[0-127]未使用
+    //创建二叉树
     PROPAGATE_ERROR_FAIL( NvDlaBuddyAlloc.construct(m_addr_mgr, static_cast<const void*>(m_base_addr), (NvU32)poolSize, minElementSizeLog2) );
 
 fail:

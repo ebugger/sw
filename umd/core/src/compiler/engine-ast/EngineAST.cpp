@@ -180,7 +180,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
     NvDlaError e = NvDlaSuccess;
     vector<engine_ast::Edge *> input_edges;
     vector<engine_ast::Edge *> output_edges;
-
+    // can和ast的node和edge的对应，以及两个单独的node的vector
     vector<canonical_ast::Node *> can_edge_first_nodes, can_edge_second_nodes;
     map<canonical_ast::Node *, engine_ast::Node *> can_to_eng_sink_node_map, can_to_eng_source_node_map;
     map<canonical_ast::Edge *, engine_ast::Edge *> can_to_eng_edge_map;
@@ -247,10 +247,10 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
 
         engine_edge->setGraph(eng_graph);
         engine_edge->setId(eng_graph->nextEdgeId());
-        engine_edge->setDataEdge();
+        engine_edge->setDataEdge(); //set edge type as DATA
         engine_edge->setOriginalTensor(engine_tensor);
 
-        can_to_eng_edge_map[*cei] = engine_edge;
+        can_to_eng_edge_map[*cei] = engine_edge;  //con_edge和eng_edge的映射
         eng_graph->insertEdge(engine_edge);
 
     }
@@ -506,16 +506,16 @@ static NvDlaError transformCanConvOp
 
     engSrcEdge     = engSrcEdges[0];
     engSinkEdge    = engSinkEdges[0];
-    canConvNode    = canonical_ast::NodeFactory::nodeCast<canonical_ast::ConvolutionNode*>(canNode);
+    canConvNode    = canonical_ast::NodeFactory::nodeCast<canonical_ast::ConvolutionNode*>(canNode); //使用rtti直接cast，没有使用那个s_priv结构，
     engConvNode    = engine_ast::NodeFactory::newConvCoreConvolutionOpNode(canConvNode, engGraph);
     adjointSDPNode = engConvNode->addSDPJointOpNode(canConvNode);
-    adjointSDPNode->params().setConvMode(engConvNode->params().convMode());
+    adjointSDPNode->params().setConvMode(engConvNode->params().convMode()); //spd有conv mode的信息， 为啥？
 
     ASSERT( canNode->inputEdges().size() == 1 );
     ASSERT( canNode->outputEdges().size() == 1 );
 
-    isInputBindable  = std::find(canInputEdges.begin(), canInputEdges.end(), canNode->inputEdges().at(0)) != canInputEdges.end();
-    isOutputBindable = std::find(canOutputEdges.begin(), canOutputEdges.end(), canNode->outputEdges().at(0)) != canOutputEdges.end();
+    isInputBindable  = std::find(canInputEdges.begin(), canInputEdges.end(), canNode->inputEdges().at(0)) != canInputEdges.end();//注意是整个网络输入
+    isOutputBindable = std::find(canOutputEdges.begin(), canOutputEdges.end(), canNode->outputEdges().at(0)) != canOutputEdges.end(); //注意是整个网络输出
     isWG             = engConvNode->params().convMode() == engine_ast::ConvolutionModeEnum::CONV_WINOGRAD;
 
     if (isWG && (isInputBindable || isOutputBindable))
