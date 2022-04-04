@@ -55,7 +55,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
     Tensor* streamTensor;
     engine_ast::SDPNode* sdpJointNode = NULL;
     canonical_ast::Graph* canGraph    = origCanNode->graph();
-
+    engine_ast::Edge *aux_stream = NULL;
     if (origCanNode->params().hasBiasTerm())
     {
         sdpJointNode = engine_ast::NodeFactory::newSDPBiasOpNode(origCanNode, graph());
@@ -105,7 +105,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
         engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->params().setRawScaleData(rawScaleData);
         engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->params().setDLAScaleData(Weights(DataType::FLOAT, NULL, 0));
 
-        PROPAGATE_ERROR_FAIL(engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->captureCanonicalScaleData());
+        PROPAGATE_ERROR_FAIL(engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->captureCanonicalScaleData());//TODO
     }
     else
     {
@@ -125,8 +125,9 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
     // represents a tensor on wire, we call it a stream tensor, whose dims are same as
     // the orig o/p tensor of parent conv node, although no buffers would be reserved
     // for it during runtime
-    graph()->addDataEdge((canonical_ast::Edge*)0, this, sdpJointNode, streamTensor);
-
+    aux_stream = graph()->addDataEdge((canonical_ast::Edge*)0, this, sdpJointNode, streamTensor);
+    gLogInfo <<"\tattach a new DATA aux eng edge/kSTREAM tensor:"<<aux_stream->id()<<" with empty can_edge from ConvCoreNode:"<<this->name()<<" ➞ SDPBiasOpNode:"<< sdpJointNode->name()<<std::endl;
+    NVDLA_UNUSED(aux_stream);
 fail:
     return sdpJointNode;
 }
@@ -2545,9 +2546,9 @@ NvDlaError engine_ast::ConvCoreNode::captureCanonicalWeights()
     Tensor* wt_tensor;
 
     wt_tensor = graph()->addAuxTensor(graph()->newAuxTensorName(), params().weightDims(), TensorType::kWEIGHT);
-    Edge* aux = graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, wt_tensor);
-    NVDLA_UNUSED(aux);
-
+    Edge* aux = graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, wt_tensor);//wt_tensor映射到eng_edge
+    gLogInfo <<"\tattach a new DATA aux eng edge/kWEIGHT tensor w/o tras:"<<aux->id()<<" with empty can_edge/eng_node ➞ ConvCoreNode: ";
+    NVDLA_UNUSED(aux); 
     return e;
 }
 

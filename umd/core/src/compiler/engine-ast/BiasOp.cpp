@@ -50,8 +50,9 @@ NvDlaError engine_ast::SDPBiasOpNode::captureCanonicalBiasData()
 
     bias_data_tensor = graph()->addAuxTensor(graph()->newAuxTensorName(), params().biasDims(), TensorType::kBIAS);
 
-    graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, bias_data_tensor);
-
+    engine_ast::Edge *aux = graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, bias_data_tensor);
+    gLogInfo <<"\tattach a new DATA aux eng edge/kBIAS tensor w/o trans:"<<aux->id()<<" with empty can_edge/eng_node ➞ SDPBiasOpNode: "<< this->name()<<std::endl;
+    NVDLA_UNUSED(aux);
     return e;
 }
 
@@ -118,7 +119,7 @@ void engine_ast::SDPBiasOpNode::captureCanonicalParams()
     params().x1Params().setAluType(SDPALUTypeEnum::SDP_ALU_TYPE_SUM);
     params().x1Params().setOpType(SDPOpTypeEnum::SDP_OP_TYPE_ADD);
     params().setDLABiasData(Weights(DataType::FLOAT, NULL, 0));
-    PROPAGATE_ERROR_FAIL(captureCanonicalBiasData());
+    PROPAGATE_ERROR_FAIL(captureCanonicalBiasData()); //only create new eng edge/tensot to attach to the spdopnode
 
     if ( graph()->debugWeights() )
     {

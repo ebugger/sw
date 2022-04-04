@@ -685,6 +685,14 @@ engine_ast::Edge *engine_ast::Graph::addDataEdge(canonical_ast::Edge *canEdge, N
                                                 edge->id().c_str(), fromNode->name().c_str(), toNode->name().c_str());
     }
 
+    
+    // gLogInfo <<"\tattach a new DATA aux eng edge/tensor:"<<edge->id()<<" with empty can_edge/eng_node from:";
+    // if(fromNode) gLogInfo << fromNode->id();
+    // if(!fromNode) gLogInfo << "None Node";
+    // gLogInfo <<" ➞ ";
+    // if(toNode) gLogInfo << toNode->id();
+    // if(!toNode) gLogInfo << "None Node";   
+    // gLogInfo << std::endl; 
     return edge;
 }
 

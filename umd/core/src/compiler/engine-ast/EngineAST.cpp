@@ -279,7 +279,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
     {
         engine_ast::Graph::EdgeSequence engSrcEdges;
         engine_ast::Graph::EdgeSequence engSinkEdges;
-        engine_ast::Graph::NodeSequence engNodes;
+        engine_ast::Graph::NodeSequence engNodes; //原来can_node 打伞后的顺序eng_node,临时村方供打印， 过程中已经添加进eng_graph m_nodes
         canonical_ast::Graph::EdgeSequence canSrcEdges = can_graph->nodeEdges(*cni, ast::EdgeSideEnum::SECOND);
         canonical_ast::Graph::EdgeSequence canSinkEdges = can_graph->nodeEdges(*cni, ast::EdgeSideEnum::FIRST);
         canonical_ast::Graph::EdgeSequenceIterator cei;
@@ -304,12 +304,12 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
 
         if ( eng_graph->debugGraphDump() )
         {
-            gLogInfo << (*cni)->id() << ":->";
+            gLogInfo << (*cni)->name() << "(Can_node):->[";
             for (vector<engine_ast::Node *>::iterator ni = engNodes.begin(); ni != engNodes.end(); ++ni)
             {
-                gLogInfo << (*ni)->id() << ":" << (*ni)->name() << " ";
+                gLogInfo << (*ni)->id() << ":" << (*ni)->name() << " + ";
             }
-            gLogInfo << std::endl;
+            gLogInfo <<"]"<< std::endl;
         }
     }
 
@@ -319,7 +319,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
         engine_ast::Edge *first_edge = can_to_eng_edge_map[can_graph->inputEdges().front()];
         engine_ast::Edge *input_edge = can_to_eng_edge_map[*cie];
         input_edge->originalTensor()->setDataFormat(profile->networkInputDataFormat());
-
+        gLogInfo<< "Set input edge's orig tensor format:"<<input_edge->originalTensor()->getDataFormat().c_str()<<std::endl;
         // Determine if multibatch parameters are consistent for all input tensors
         if (first_edge->originalTensor()->getDimensions().n != input_edge->originalTensor()->getDimensions().n)
         {
@@ -356,7 +356,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
                 std::vector<NvF32> channelScales;
                 for (NvU32 cc = 0; cc < (NvU32)networkDims.c; ++cc)
                 {
-                    channelScales.push_back(tensorScale);
+                    channelScales.push_back(tensorScale);//直接吧chn0的scalecopy到多个channel
                 }
                 input_edge->originalTensor()->setChannelScales(channelScales);
             }
@@ -394,7 +394,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
     {
         engine_ast::Edge *output_edge = can_to_eng_edge_map[*coe];
         output_edge->originalTensor()->setDataFormat(profile->networkOutputDataFormat());
-
+        gLogInfo<< "Set Out edge's orig tensor format:"<<output_edge->originalTensor()->getDataFormat().c_str()<<std::endl;
         Dims4 networkDims = output_edge->originalTensor()->getDimensions();
         if ( networkDims.n != (NvS32)profile->multiBatchSize() )
         {
@@ -430,7 +430,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
             std::string canNodeName;
             if ((*eni)->canonicalNode() == NULL)
             {
-                canNodeName = "(No canonical node)";
+                canNodeName = "(No canonical node, unit_scale/conv_scale?)";
             }
             else
             {
@@ -509,7 +509,7 @@ static NvDlaError transformCanConvOp
     canConvNode    = canonical_ast::NodeFactory::nodeCast<canonical_ast::ConvolutionNode*>(canNode); //使用rtti直接cast，没有使用那个s_priv结构，
     engConvNode    = engine_ast::NodeFactory::newConvCoreConvolutionOpNode(canConvNode, engGraph);
     adjointSDPNode = engConvNode->addSDPJointOpNode(canConvNode);
-    adjointSDPNode->params().setConvMode(engConvNode->params().convMode()); //spd有conv mode的信息， 为啥？
+    adjointSDPNode->params().setConvMode(engConvNode->params().convMode()); //spd需要有conv mode的信息， 为啥？
 
     ASSERT( canNode->inputEdges().size() == 1 );
     ASSERT( canNode->outputEdges().size() == 1 );
@@ -530,9 +530,9 @@ static NvDlaError transformCanConvOp
 
     engGraph->appendNodeToEdge(engSrcEdge, ast::EdgeSideEnum::SECOND, engConvNode);
     engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, adjointSDPNode);
-
-    PROPAGATE_ERROR_FAIL(engConvNode->nodeAuxEdge(&convAuxEdge));
-    PROPAGATE_ERROR_FAIL(adjointSDPNode->nodeAuxEdge(&sdpAuxEdge));
+    gLogInfo<<"(Connect src_eng_Edge:)"<<engSrcEdge->id() <<"->[ConvCoreConvolutionOpNode + SDPJointOpNode]<-"<<engSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
+    PROPAGATE_ERROR_FAIL(engConvNode->nodeAuxEdge(&convAuxEdge));  //将上述在graph创建的aux edge同步到这个convnode的aux信息区间
+    PROPAGATE_ERROR_FAIL(adjointSDPNode->nodeAuxEdge(&sdpAuxEdge)); //将上述在graph创建的aux edge同步到这个spdnode的aux信息区间
 
     PROPAGATE_ERROR_FAIL(engConvNode->populateEdgePorts());
     transformedEngNodes.push_back(engConvNode);
@@ -671,9 +671,10 @@ static NvDlaError prependScaleOpForRescaling
                             (engine_ast::Node*)0,
                             (engine_ast::Node*)0,
                             outTensor);
+    gLogInfo <<"\tattach a new DATA aux eng edge/kIO tensor:"<<scaleSinkEdge->id()<<" with empty can_edge from SDPScaleOpNode:"<<engSDPScaleNode->name()<<" ➞ next Act Node"<<std::endl;
     engGraph->appendNodeToEdge(engSrcEdge, ast::EdgeSideEnum::SECOND, engSDPScaleNode);
     engGraph->appendNodeToEdge(scaleSinkEdge, ast::EdgeSideEnum::FIRST, engSDPScaleNode);
-
+    gLogInfo<<"(Connect src_eng_Edge:)"<<engSrcEdge->id() <<"->[SDPScaleOpNode]<-"<<scaleSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
     PROPAGATE_ERROR_FAIL(engSDPScaleNode->populateEdgePorts());
     transformedEngNodes.push_back(engSDPScaleNode);
 fail:
@@ -731,7 +732,7 @@ static NvDlaError transformCanActOp
 
     engGraph->appendNodeToEdge(engSrcEdge, ast::EdgeSideEnum::SECOND, engActNode);
     engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, engActNode);
-
+    gLogInfo<<"(Connect src_eng_Edge:)"<<engSrcEdge->id() <<"->[SDPActivationOpNode]<-"<<engSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
     PROPAGATE_ERROR_FAIL(engActNode->populateEdgePorts());
     transformedEngNodes.push_back(engActNode);
 
@@ -767,7 +768,7 @@ static NvDlaError transformCanPoolingOp
 
     engGraph->appendNodeToEdge(engSrcEdge, ast::EdgeSideEnum::SECOND, engPDPNode);
     engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, engPDPNode);
-
+    gLogInfo<<"(Connect src_eng_Edge:)"<<engSrcEdge->id() <<"->[PDPNode]<-"<<engSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
     PROPAGATE_ERROR_FAIL(engPDPNode->populateEdgePorts());
     transformedEngNodes.push_back(engPDPNode);
 
@@ -842,7 +843,7 @@ static NvDlaError transformCanScaleOp
 
     canScaleNode = canonical_ast::NodeFactory::nodeCast<canonical_ast::ScaleNode*>(canNode);
 
-    power = canScaleNode->params().power();
+    power = canScaleNode->params().power(); //scale layer + power layer放在一起了， (shift + scale * x) ^ power
     if ((power.count > 0) && (*reinterpret_cast<float*>(const_cast<void*>(power.values)) != 0.0f))
     {
         engCPUScaleNode = engine_ast::NodeFactory::newCPUScaleOpNode(canScaleNode, engGraph);
@@ -854,15 +855,18 @@ static NvDlaError transformCanScaleOp
     {
         engSDPScaleNode = engine_ast::NodeFactory::newSDPScaleOpNode(canScaleNode, engGraph);
         engGraph->appendNodeToEdge(engSrcEdge, ast::EdgeSideEnum::SECOND, engSDPScaleNode);
+        gLogInfo<<"(Connect src_eng_Edge:)"<<engSrcEdge->id() <<"->[SDPScaleOpNode]"<< std::endl;;
         if (canScaleNode->params().hasBiasTerm())
         {
             adjointEngSDPBiasNode = engSDPScaleNode->addSDPBiasOpNode(canNode);
             engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, adjointEngSDPBiasNode);
+            gLogInfo<<"[SDPBiasOpNode]<-"<<engSinkEdge->id() <<"Connect(sink_eng_edge)" << std::endl;
             isBiasTerm = true;
         }
         else
         {
             engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, engSDPScaleNode);
+            gLogInfo<<"[SDPScaleOpNode]<-"<<engSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
             isBiasTerm = false;
         }
     }
@@ -915,7 +919,7 @@ static NvDlaError transformCanBNOp
 
     engGraph->appendNodeToEdge(engSrcEdge, ast::EdgeSideEnum::SECOND, engBNNode);
     engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, engBNNode);
-
+    gLogInfo<<"(Connect src_eng_Edge:)"<<engSrcEdge->id() <<"->[SDPBatchNormOpNode]<-"<<engSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
     PROPAGATE_ERROR_FAIL(engBNNode->populateEdgePorts());
     transformedEngNodes.push_back(engBNNode);
 
@@ -1066,7 +1070,8 @@ static NvDlaError transformCanEWOp
     engGraph->appendNodeToEdge(engSrc1Edge, ast::EdgeSideEnum::SECOND, engEWNode);
     engGraph->appendNodeToEdge(engSrc2Edge, ast::EdgeSideEnum::SECOND, engEWNode);
     engGraph->appendNodeToEdge(engSinkEdge, ast::EdgeSideEnum::FIRST, engEWNode);
-
+    gLogInfo<<"(Connect src1_eng_Edge:)"<<engSrc1Edge->id() <<"->[SDPElementWiseOpNode]"<< " And" << std::endl;
+    gLogInfo<<"(Connect src2_eng_Edge:)"<<engSrc2Edge->id() <<"->[SDPElementWiseOpNode]<-"<<engSinkEdge->id() <<" (sink_eng_edge)" << std::endl;
     PROPAGATE_ERROR_FAIL(engEWNode->populateEdgePorts());
     transformedEngNodes.push_back(engEWNode);
 

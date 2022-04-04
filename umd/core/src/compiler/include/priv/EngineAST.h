@@ -972,7 +972,7 @@ public:
     inline bool debugOps() const { return true; }
     inline bool debugGroupOps() const { return true; }
     inline bool debugMathOptz() const { return true; }
-    inline bool debugWeights() const { return true; }
+    inline bool debugWeights() const { return false; }
     inline bool debugQuantization() const { return true; }
     inline bool debugFuseSubEngineOps() const { return true; }
     inline bool debugSurfaces() const { return true; }
@@ -3343,7 +3343,7 @@ public:
     }
     virtual ~Edge() { }
 
-    static inline bool debugBinding() { return false; }
+    static inline bool debugBinding() { return true; }
 
     const std::string id() const     { return m_id; }
     void setId(const std::string id) { m_id = id; }

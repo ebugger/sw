@@ -1398,7 +1398,7 @@ class WeightTrns
             unitScaleData.type = getEnumFromType<MP>();
             unitScaleData.count = unitScaleCount;
             unitScaleData.values = unitScaleValues;
-
+            //gLogInfo<<"\tInitilize raw Unit Scale(scale=1) param with precsion"<<unitScaleData.type.v()<<std::endl;
         fail:
             return unitScaleData;
         }

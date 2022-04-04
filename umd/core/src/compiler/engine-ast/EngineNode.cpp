@@ -93,7 +93,7 @@ NvDlaError engine_ast::Node::populateEdgePorts()
     /**
      * should be exactly only 1 output edge, it should be the data output,
      * none of the engine nodes is capable of >1 outputs, fail if so since
-     * concat and split nodes are handled separately
+     * concat and split nodes are handled separately 单独处理concat和split
      */
     if (outputEdges.size() == 0)
     {
@@ -108,7 +108,7 @@ NvDlaError engine_ast::Node::populateEdgePorts()
         ORIGINATE_ERROR_FAIL(NvDlaError_BadValue, "%s has >1 output edges", name().c_str());
     }
 
-    PROPAGATE_ERROR_FAIL( verifyEdgePorts() );
+    PROPAGATE_ERROR_FAIL( verifyEdgePorts() );//检测conv的输入输出和aux是不是都是一个
 
 fail:
     return e;
@@ -256,12 +256,12 @@ NvDlaError engine_ast::Node::nodeDataEdge(TensorType raw_tt, ast::EdgeSideEnum d
             TensorType tt = (*ei)->originalTensor()->getTensorType();
             if (tt == raw_tt)
             {
-                if (matchedEdge != NULL)
+                if (matchedEdge != NULL)//注意轮询有可能多输出
                 {
                     ORIGINATE_ERROR_FAIL(NvDlaError_BadValue, ">1 data edge (%s, %s) of same TensorType %d",
                                          matchedEdge->id().c_str(), (*ei)->id().c_str(), (int)raw_tt);
                 }
-                matchedEdge = *ei;
+                matchedEdge = *ei;  //通常情况走这个条负值
             }
         }
     }

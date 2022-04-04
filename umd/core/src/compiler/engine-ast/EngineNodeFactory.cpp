@@ -172,7 +172,7 @@ engine_ast::ConvCoreConvolutionOpNode* engine_ast::NodeFactory::newConvCoreConvo
     }
     else
     {
-        dd->setName(std::string("dc-conv-") + toString(s_conv_conv_priv.size()));
+        dd->setName(std::string("dc-conv-") + toString(s_conv_conv_priv.size()));gLogInfo<< dd->name()<<std::endl;
         dd->params().setConvMode(engine_ast::ConvolutionModeEnum::CONV_DIRECT);
     }
 

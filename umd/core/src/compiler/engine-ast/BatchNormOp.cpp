@@ -51,7 +51,7 @@ NvDlaError engine_ast::SDPBatchNormOpNode::captureCanonicalBatchNormData()
     NvDlaError e = NvDlaError_Success;
     Dims4             bnDims;
     Tensor*           bnDataTensor = NULL;
-    //    engine_ast::Edge* bnDataEdge   = NULL;
+    engine_ast::Edge* bnDataEdge   = NULL;
 
     if (params().meanDims() != params().varianceDims())
     {
@@ -62,8 +62,9 @@ NvDlaError engine_ast::SDPBatchNormOpNode::captureCanonicalBatchNormData()
 
     bnDataTensor = graph()->addAuxTensor(graph()->newAuxTensorName(), bnDims, TensorType::kBATCH_NORM);
 
-    /*bnDataEdge = */graph()->addDataEdge((canonical_ast::Edge*)0, (engine_ast::Node*)0, this, bnDataTensor);
-
+    bnDataEdge = graph()->addDataEdge((canonical_ast::Edge*)0, (engine_ast::Node*)0, this, bnDataTensor);
+    gLogInfo <<"\tattach a new DATA aux eng edge/kBATCH_NORM tensor:"<<bnDataEdge->id()<<" with empty can_edge/eng_node ➞ SDPBatchNormOpNode: "<< this->name()<<std::endl;
+    NVDLA_UNUSED(bnDataEdge);
 fail:
     return e;
 }

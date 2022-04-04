@@ -68,7 +68,7 @@ engine_ast::SDPNode* engine_ast::SDPScaleOpNode::addSDPBiasOpNode
     ioTensor->setTensorType(TensorType::kIO);
 
     ioEdge   = graph()->addDataEdge((canonical_ast::Edge*)0, this, biasNode, ioTensor);
-
+    gLogInfo <<"\tattach a new DATA aux eng edge/kIO tensor:"<<ioEdge->id()<<" with empty can_edge from:"<<this->name()<<" ➞ SDPBiasOpNode:"<< biasNode->name()<<std::endl;
 done:
     return biasNode;
 }
@@ -112,6 +112,7 @@ NvDlaError engine_ast::SDPScaleOpNode::populateWithUnitScaleParams
     /* adds aux tensor and an edge corresponding to it */
     scaleDataTensor = graph()->addAuxTensor(graph()->newAuxTensorName(), params().scaleDims(), TensorType::kSCALE);
     scaleDataEdge = graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, scaleDataTensor);
+    gLogInfo <<"\tattach a new DATA aux eng edge/kSCALE(Unit Scale) tensor w/o trans:"<<scaleDataEdge->id()<<" with empty can_edge/eng_node ➞ SDPScaleOpNode: "<< this->name()<<std::endl;
 
     return e;
 }
@@ -125,7 +126,7 @@ NvDlaError engine_ast::SDPScaleOpNode::captureCanonicalScaleData()
 
     rawSclDataTensor = graph()->addAuxTensor(graph()->newAuxTensorName(), params().scaleDims(), TensorType::kSCALE);
     rawSclDataEdge = graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, rawSclDataTensor);
-
+    gLogInfo <<"\tattach a new DATA aux eng edge/kSCALE tensor w/o trans:"<<rawSclDataEdge->id()<<" with empty can_edge/eng_node ➞ SDPScaleOpNode: "<< this->name()<<std::endl;
     return e;
 }
 
