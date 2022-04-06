@@ -525,11 +525,11 @@ public:
     //
     // finishes a node and increments time. note: any upstream edges which were finishable
     // but which hadn't been yet take time == t and the node itself takes time = t + 1;
-    //
+    //are
     NvDlaError finishNode(GraphTraversalPointer<G> &ptr, int t)
     {
         NvDlaError e = NvDlaError_Success;
-        gLogInfo << __FUNCTION__<< ":"<<ptr.node()->name()<<" ↑edge to finish if is finishable."; 
+        gLogInfo << __FUNCTION__<< ":"<<ptr.node()->name()<<" ↑edge to finish if is/are finishable."; 
         EdgeSequence up_edges = m_graph->upstreamEdges(ptr.node());
         for ( EdgeSequenceIterator up_i = up_edges.begin(); up_i != up_edges.end(); ++up_i)
         {
@@ -830,7 +830,8 @@ protected:
     std::vector<ElemScoresIterator> m_elem_score_order;
 
     struct ElemScoreSorter
-    {
+    {   
+        //uint cnt = 0;
         ElemScoreSorter(GraphScoreboard<G> &scores) : m_use_scores(scores) { }
         bool operator() (ElemScoresIterator i, ElemScoresIterator j)
         {
@@ -846,8 +847,9 @@ protected:
 
             if ( i_eq_j )
             {
-                gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
-                     (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
+                gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << 
+                     (i->first.first?i->first.first->name():i->first.second->originalTensor()->getName())<< i->second.toString() << "] < j[" <<
+                     (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():j->first.second->originalTensor()->getName())<< j->second.toString() << "] = " << i_lt_j << std::endl;
 
                 // nodes before edges if otherwise equal
                 if ( i->first.first && j->first.second )
@@ -859,10 +861,13 @@ protected:
                     i_lt_j = false;
                     // i_eq_j = false;
                 }
+            }else{
+            // gLogInfo << "elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
+            //      (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
+                gLogInfo << " elem i [" << (i->first.first?"node: ":"edge: ") << 
+                        (i->first.first?i->first.first->name():i->first.second->originalTensor()->getName())<< i->second.toString() << "] < j[" <<
+                        (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():j->first.second->originalTensor()->getName())<< j->second.toString() << "] = " << i_lt_j << std::endl;
             }
-            gLogInfo << "elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
-                 (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
-
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;
@@ -870,11 +875,12 @@ protected:
 
     struct NodeScoreSorter
     {
+        //uint cnt = 0;
         NodeScoreSorter(GraphScoreboard<G> &scores) : m_use_scores(scores) { }
         bool operator() (NodeScoresIterator i, NodeScoresIterator j)
         {
             bool i_lt_j = i->second < j->second;
-            gLogInfo << "node i [" << i->second.toString() << "] < j[" << j->second.toString() << "] = " << i_lt_j << std::endl;
+            gLogInfo << "node i "<<i->first->name()<<"[" << i->second.toString() << "] < j[" << j->second.toString() << "]"<<j->first->name() <<" = " << i_lt_j << std::endl;
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;
@@ -882,11 +888,12 @@ protected:
 
     struct EdgeScoreSorter
     {
+        //uint cnt = 0;
         EdgeScoreSorter(GraphScoreboard<G> &scores) : m_use_scores(scores) { }
         bool operator() (EdgeScoresIterator i, EdgeScoresIterator j)
         {
             bool i_lt_j = i->second < j->second;
-            gLogInfo << "edge i [" << i->second.toString() << "] < j[" << j->second.toString() << "] = " << i_lt_j << std::endl;
+            gLogInfo << "edge i "<<i->first->originalTensor()->getName()<<" [" << i->second.toString() << "] < j[" << j->second.toString() << "]"<<j->first->originalTensor()->getName()<<" = " << i_lt_j << std::endl;
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;
@@ -911,7 +918,7 @@ protected:
         for ( node_score_i = m_scores.nodeBegin(); node_score_i != m_scores.nodeEnd(); ++node_score_i ) {
             m_node_score_order.push_back(node_score_i);
         }
-#if 1
+#if 0
         //gLogInfo << "m_node_order" << &m_node_order << std::endl;
         gLogInfo << "m_node_order before sort" << std::endl;
         // for ( node_score_i = m_node_score_order.begin(); node_score_i != m_node_score_order.end(); ++node_score_i ) {

@@ -86,7 +86,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
             ORIGINATE_ERROR_FAIL(NvDlaError_NotSupported, "Don't support quantization mode: %s\n",
                                 graph()->profile()->quantizationMode().c_str());
         }
-
+        gLogInfo<<"/tNewly allocated rawScaleData"<< std::endl;
         procScaleBlob = (NvF32*)engine_ast::MemoryCollector::getInstance()->allocateMemory(rawScaleData.count * sizeof(NvF32));
         memset(procScaleBlob, 0.0, rawScaleData.count * sizeof(NvF32));
         rawScaleData.values = procScaleBlob;
@@ -104,7 +104,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
         engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->params().setScaleDims(scaleDims);
         engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->params().setRawScaleData(rawScaleData);
         engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->params().setDLAScaleData(Weights(DataType::FLOAT, NULL, 0));
-
+        gLogInfo<<"Conv w/o Bias so we need a SDPScaleOpNode(w/ newly allocated Unit scale raw data)" <<std::endl;
         PROPAGATE_ERROR_FAIL(engine_ast::NodeFactory::nodeCast<engine_ast::SDPScaleOpNode*>(sdpJointNode)->captureCanonicalScaleData());//TODO
     }
     else
@@ -126,7 +126,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
     // the orig o/p tensor of parent conv node, although no buffers would be reserved
     // for it during runtime
     aux_stream = graph()->addDataEdge((canonical_ast::Edge*)0, this, sdpJointNode, streamTensor);
-    gLogInfo <<"\tattach a new DATA aux eng edge/kSTREAM tensor:"<<aux_stream->id()<<" with empty can_edge from ConvCoreNode:"<<this->name()<<" ➞ SDPBiasOpNode:"<< sdpJointNode->name()<<std::endl;
+    gLogInfo <<"\tattach a new DATA aux eng edge/kSTREAM tensor:"<<aux_stream->id()<<" cloned from downstream edge from ConvCoreNode:"<<this->name()<<" ➞ SDP(Bias/UintScale)OpNode:"<< sdpJointNode->name()<<std::endl;
     NVDLA_UNUSED(aux_stream);
 fail:
     return sdpJointNode;

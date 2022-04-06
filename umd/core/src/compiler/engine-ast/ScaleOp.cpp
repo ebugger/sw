@@ -68,7 +68,7 @@ engine_ast::SDPNode* engine_ast::SDPScaleOpNode::addSDPBiasOpNode
     ioTensor->setTensorType(TensorType::kIO);
 
     ioEdge   = graph()->addDataEdge((canonical_ast::Edge*)0, this, biasNode, ioTensor);
-    gLogInfo <<"\tattach a new DATA aux eng edge/kIO tensor:"<<ioEdge->id()<<" with empty can_edge from:"<<this->name()<<" ➞ SDPBiasOpNode:"<< biasNode->name()<<std::endl;
+    gLogInfo <<"\tattach a new DATA aux eng edge/kIO tensor:"<<ioEdge->id()<<" cloned from downstream edge from:"<<this->name()<<" ➞ SDPBiasOpNode:"<< biasNode->name()<<std::endl;
 done:
     return biasNode;
 }
@@ -106,7 +106,7 @@ NvDlaError engine_ast::SDPScaleOpNode::populateWithUnitScaleParams
     params().setScaleDims(scaleDims);
     params().setRawScaleData(unitScaleData);
     params().setDLAScaleData(Weights(DataType::FLOAT, NULL, 0));
-
+    gLogInfo <<"\tnewly allocate raw UnitScaleData"<<std::endl;
     setUnitScale(true);
 
     /* adds aux tensor and an edge corresponding to it */
@@ -122,11 +122,12 @@ NvDlaError engine_ast::SDPScaleOpNode::captureCanonicalScaleData()
     NvDlaError e = NvDlaSuccess;
     Tensor* rawSclDataTensor;
     engine_ast::Edge* rawSclDataEdge  = NULL;
-    NVDLA_UNUSED(rawSclDataEdge);
+    //NVDLA_UNUSED(rawSclDataEdge);
 
     rawSclDataTensor = graph()->addAuxTensor(graph()->newAuxTensorName(), params().scaleDims(), TensorType::kSCALE);
     rawSclDataEdge = graph()->addDataEdge((canonical_ast::Edge*)0, 0, this, rawSclDataTensor);
     gLogInfo <<"\tattach a new DATA aux eng edge/kSCALE tensor w/o trans:"<<rawSclDataEdge->id()<<" with empty can_edge/eng_node ➞ SDPScaleOpNode: "<< this->name()<<std::endl;
+    NVDLA_UNUSED(rawSclDataEdge);
     return e;
 }
 

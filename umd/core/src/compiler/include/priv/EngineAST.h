@@ -3422,7 +3422,7 @@ public:
         bool isBindable = m_bindId >= 0;
         if ( debugBinding() )
         {
-            gLogInfo << "::Edge edge=" << m_id << " bindable=" << isBindable << std::endl;
+            gLogInfo << "::Edge edge=" << m_id<<"/"<<m_original_tensor->getName()<<"/"<<m_original_tensor->getTensorType() << " bindable=" << isBindable << std::endl;
         }
         return isBindable;
     }
@@ -3430,7 +3430,7 @@ public:
     {
         if ( debugBinding() )
         {
-            gLogInfo << "::Edge edge=" << m_id << " bindid=" << m_bindId << std::endl;
+            gLogInfo << "::Edge edge=" << m_id <<"/"<<m_original_tensor->getName() <<"/"<<m_original_tensor->getTensorType() << " bindid=" << m_bindId << std::endl;
         }
         return m_bindId;
     }
@@ -3441,7 +3441,7 @@ public:
     {
         if ( debugBinding() )
         {
-            gLogInfo << "::Edge edge=" << m_id << " domain=" << (int)m_bindDomain << " bind_id=" << m_bindId << std::endl;
+            gLogInfo << "::Edge edge=" << m_id <<"/"<<m_original_tensor->getName() << " domain=" << (int)m_bindDomain << " bind_id=" << m_bindId << std::endl;
         }
         bindDomain = m_bindDomain;
         return m_bindId;
