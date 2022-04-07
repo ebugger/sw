@@ -68,16 +68,16 @@ NvDlaError engine_ast::Edge::registerSurface()
         ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "Unidentified TensorType '%d' in edge '%s'", tt, id().c_str());
     }
 
-    tsd = tensorSurfaceDesc();
-    if ( !tsd )
+    tsd = tensorSurfaceDesc(); //非初始化，而是返回原来edge中的变量
+    if ( !tsd ) //如果原edge没有设置过tsd
     {
-        tsd = graph()->resourceMgr()->regTensorSurfaceDesc(tt, numBatches);
+        tsd = graph()->resourceMgr()->regTensorSurfaceDesc(tt, numBatches);//初始化创建tsd
         tsd->setName(std::string(originalTensor()->getName()));
         tsd->setBufferOffset(0);        // default offset
         tsd->setDimensions(originalTensor()->getDimensions());
         tsd->setCopyOutDebugSurface(tt == TensorType::kDEBUG);
         tsd->setDataFormat(originalTensor()->getDataFormat());
-        tsd->setParentEdge(this);
+        tsd->setParentEdge(this); //挂载到当前的edge
         setTensorSurfaceDesc(tsd);
 
         //
@@ -102,8 +102,7 @@ NvDlaError engine_ast::Edge::registerSurface()
         if ( graph()->debugSurfaces() )
         {
             gLogInfo << ((tt == TensorType::kDEBUG) ? "(debug) ":"" ) <<
-                "edge: " << id() << " tsd: " << tsd->id() <<
-                " registered" << endl;
+                "edge: " << id() << " tsd: " << tsd->id()<<"with tt:"<< originalTensor()->tt_cstr()<<" registered as tc:" <<tsd->tensorCategory().c_str() <<std::endl;
         }
     }
 
@@ -191,9 +190,10 @@ NvDlaError engine_ast::Edge::determineSurfaceFormat()
             gLogInfo << id() << " edge already has set surface format " <<
                     tsd->surfaceFormat().c_str() << endl;
         }
+        gLogInfo<< "tsd SF:"<<tsd->surfaceFormat().c_str() <<std::endl;
         goto fail;
     }
-
+    gLogInfo<< "process edge:"<< id()<<"/"<<originalTensor()->getName()<<"/"<<originalTensor()->tt_cstr()<<"/"<<tsd->tensorCategory().c_str()<<" with initial tsd SF:"<<tsd->surfaceFormat().c_str() <<std::endl;
     producers = tsd->producers();
     consumers = tsd->consumers();
 

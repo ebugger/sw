@@ -94,6 +94,8 @@ public: // externally facing
     TensorType getTensorType() const;
     void   setTensorType(TensorType);
 
+    virtual const char* tt_cstr() const;
+
     virtual INetwork *getNetwork() const;
 
     virtual Tensor *clone() { return new Tensor(*this); }

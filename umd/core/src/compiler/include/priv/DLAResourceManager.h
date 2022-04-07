@@ -120,7 +120,7 @@ protected:
         bool operator() (const Tp &lhs, const Tp &rhs) const { return lhs->id()<rhs->id(); }
     };
 
-    // just sets with specific ordering
+    // just sets with specific ordering从小到大排列
     typedef std::set< surface::TensorSurfaceDesc *, CompareById<surface::TensorSurfaceDesc *> > TensorSurfaceDirectory;
     typedef std::set<           TensorBufferDesc *, CompareById<          TensorBufferDesc *> > TensorBufferDirectory;
 

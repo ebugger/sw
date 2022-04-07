@@ -299,6 +299,11 @@ void Tensor::setTensorType(TensorType t)
     mTensorType = t;
 }
 
+const char* Tensor::tt_cstr() const {
+    const char * names[10] = { "kUNKNOWN", "kNW_INPUT", "kNW_OUTPUT", "kIO", "kWEIGHT","kBIAS", "kBATCH_NORM", "kSCALE", "kSTREAM", "kDEBUG" };
+            return names[mTensorType];
+}
+
 NvDlaError Tensor::setChannelDynamicRange(NvS32 chnlIndx, NvF32 min, NvF32 max)
 {
     NvDlaError e = NvDlaSuccess;

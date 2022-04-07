@@ -35,7 +35,7 @@ BUILDDIR := $(BUILDOUT)/$(MODULE)
 LIB := $(BUILDDIR)/$(MODULE).so
 
 INCLUDES := -I$(ROOT)/external/protobuf-2.6/src -I/data/protobuf_2.6/include
-MODULE_COMPILEFLAGS := -g -fPIC -finline -W -Wall -Wno-multichar -Wno-unused-parameter -Wno-unused-function -Werror-implicit-function-declaration
+MODULE_COMPILEFLAGS := -g -fPIC -finline -W -Wall -Wno-multichar -Wno-unused-parameter -Wno-unused-function -Wno-comment #-Werror-implicit-function-declaration# 
 MODULE_CFLAGS := --std=c99 
 MODULE_CPPFLAGS := --std=c++11 -fexceptions -fno-rtti
 
