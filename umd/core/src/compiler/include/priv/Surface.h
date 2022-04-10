@@ -375,13 +375,13 @@ public:
         NvU64       m_offset_in_buffer;
     };
 
-    TensorSurfaceDesc(NvU16 numBatches = 1) :
+    TensorSurfaceDesc(NvU16 numBatches = 1) :  //registerSurface的时候会按照每个edge初始化一个tsd
         m_size(0),
         m_line_stride(0),
         m_surface_stride(0),
-        m_tensor_category(memory::TensorCategoryEnum::UNKNOWN_TENSOR),
-        m_data_format(nvdla::DataFormat::UNKNOWN),
-        m_surface_format(SurfaceFormatEnum::NVDLA_UNKNOWN_FORMAT),
+        m_tensor_category(memory::TensorCategoryEnum::UNKNOWN_TENSOR),//regTensorSurfaceDesc会通过tensor type更新这个
+        m_data_format(nvdla::DataFormat::UNKNOWN),//registerSurface会从原tensor读取这个
+        m_surface_format(SurfaceFormatEnum::NVDLA_UNKNOWN_FORMAT), //determineSurfaceFormat会更新
         m_buffer_desc(0),
         m_copyOutDebugSurface(false),
         m_content(false),

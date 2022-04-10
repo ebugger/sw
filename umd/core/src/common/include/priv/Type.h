@@ -151,13 +151,12 @@ struct SequenceEnumCompare {
     template<> const size_t X::s_num_elements = sizeof(X::s_c_strs)/sizeof(X::s_c_strs[0]);
 
 // note: use this from inside the 'priv' namespace as that's where the SequenceEnum template is specified
-// the E parameter is priv implied but can be scoped further if needed.
+// the E parameter is priv implied but can be scoped further if needed.特化
 #define SEQUENCE_ENUM_STATIC_MEMBERS(E, U, Y, Z)                        \
     template<> const char *const SequenceEnum<E, U>::s_c_strs[] = { Y(GEN_STR) }; \
     template<> const char *      SequenceEnum<E, U>::s_c_str = Z;       \
     template<> const size_t      SequenceEnum<E, U>::s_num_elements =   \
         sizeof(SequenceEnum<E, U>::s_c_strs) / sizeof(SequenceEnum<E, U>::s_c_strs[0]);
-
 
 
 namespace nvdla

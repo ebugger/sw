@@ -429,7 +429,7 @@ std::vector<surface::SurfaceFormat> engine_ast::Node::suggestAuxSurfaceFormats(e
 fail:
     return suggestedAuxSFs;
 }
-
+//注意后面的处理
 std::vector<surface::SurfaceFormat> engine_ast::Node::suggestOutputSurfaceFormats()
 {
     NvDlaError e = NvDlaSuccess;
@@ -440,7 +440,7 @@ std::vector<surface::SurfaceFormat> engine_ast::Node::suggestOutputSurfaceFormat
     std::vector<surface::SurfaceFormat>::iterator outSFItr;
     surface::SurfacePrecision compPrec;
 
-    PROPAGATE_ERROR_FAIL(verifyEdgePorts());
+    PROPAGATE_ERROR_FAIL(verifyEdgePorts());//为哈只有这个验证了
 
     inSF = inputEdges()[0]->tensorSurfaceDesc()->surfaceFormat();
     supportedOutSFs = supportedOutSurfFormats();
@@ -480,7 +480,7 @@ std::vector<surface::SurfaceFormat> engine_ast::Node::suggestOutputSurfaceFormat
         }
         else
         {
-            suggestedOutSFs.push_back(*outSFItr);
+            suggestedOutSFs.push_back(*outSFItr);gLogInfo<<"Weed out..."<<std::endl;
         }
     }
 

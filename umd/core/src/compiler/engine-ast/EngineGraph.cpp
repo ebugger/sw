@@ -971,7 +971,7 @@ NvDlaError engine_ast::Graph::registerAllSurfaces()
 
     FOR_EACH(allEdges, EdgeSequenceIterator, registerSurface); //注册所有edge对应的tensor成tsd
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceClients);//添加edge对应的tsd的上下级node作为tsd的producer和consumer
-    FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceFormat);
+    FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceFormat);//根据edge的consumer和producer node在创建时初始化的in/out/aux的允许的SFformat的计算精度和compiler的profile的精度做对比,过滤出建议的SF
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceStrides);
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceSize);
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceOffsetInBuffer);

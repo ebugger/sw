@@ -69,7 +69,7 @@ surface::TensorSurfaceDesc* DLAResourceManager::regTensorSurfaceDesc
     NvU16 numBatches
 )
 {
-    surface::TensorSurfaceDesc* sd = new surface::TensorSurfaceDesc(numBatches);
+    surface::TensorSurfaceDesc* sd = new surface::TensorSurfaceDesc(numBatches); //初始化基本都是unkonwn 类型
     TensorCategory tc;
     switch(type){
         case TensorType::kDEBUG:

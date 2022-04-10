@@ -1979,7 +1979,7 @@ public:
         m_sup_in_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_FEATURE_DATA_FP16);
         m_sup_out_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_FEATURE_DATA_INT8);
         m_sup_out_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_FEATURE_DATA_FP16);
-        m_sup_aux_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_WEIGHT_DC_INT8);
+        m_sup_aux_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_WEIGHT_DC_INT8);//后面在registerbuffer的时候用到
         m_sup_aux_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_WEIGHT_DC_FP16);
         m_sup_aux_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_WEIGHT_IMG_INT8);
         m_sup_aux_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_WEIGHT_IMG_FP16);

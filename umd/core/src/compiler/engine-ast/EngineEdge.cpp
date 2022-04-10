@@ -71,10 +71,10 @@ NvDlaError engine_ast::Edge::registerSurface()
     tsd = tensorSurfaceDesc(); //非初始化，而是返回原来edge中的变量
     if ( !tsd ) //如果原edge没有设置过tsd
     {
-        tsd = graph()->resourceMgr()->regTensorSurfaceDesc(tt, numBatches);//初始化创建tsd
+        tsd = graph()->resourceMgr()->regTensorSurfaceDesc(tt, numBatches);//初始化创建tsd， 构造函数都是基本的unknown类型
         tsd->setName(std::string(originalTensor()->getName()));
         tsd->setBufferOffset(0);        // default offset
-        tsd->setDimensions(originalTensor()->getDimensions());
+        tsd->setDimensions(originalTensor()->getDimensions());//初始化copy了原来tensor的维度
         tsd->setCopyOutDebugSurface(tt == TensorType::kDEBUG);
         tsd->setDataFormat(originalTensor()->getDataFormat());
         tsd->setParentEdge(this); //挂载到当前的edge
@@ -102,7 +102,7 @@ NvDlaError engine_ast::Edge::registerSurface()
         if ( graph()->debugSurfaces() )
         {
             gLogInfo << ((tt == TensorType::kDEBUG) ? "(debug) ":"" ) <<
-                "edge: " << id() << " tsd: " << tsd->id()<<"with tt:"<< originalTensor()->tt_cstr()<<" registered as tc:" <<tsd->tensorCategory().c_str() <<std::endl;
+                "edge: " << id() << " tsd: " << tsd->id()<<" with tt:"<< originalTensor()->tt_cstr()<<" registered as tc:" <<tsd->tensorCategory().c_str() <<std::endl;
         }
     }
 
@@ -146,7 +146,7 @@ NvDlaError engine_ast::Edge::determineSurfaceClients()
 fail:
     return e;
 }
-
+//根据edge的consumer和producer node在创建时初始化的in/out/aux的允许的SFformat的计算精度和compiler的profile的精度做对比,过滤出建议的SF
 /*----------------------Determine Surface Format-----------------------*/
 NvDlaError engine_ast::Edge::determineSurfaceFormat()
 {
@@ -161,7 +161,7 @@ NvDlaError engine_ast::Edge::determineSurfaceFormat()
     std::set<surface::SurfaceFormat> proposedSFs;
     std::vector<surface::SurfaceFormat> suggestedSFs;
     std::vector<surface::SurfaceFormat> supportedSFs;
-
+    std::vector<surface::SurfaceFormat>::iterator suggestedSFs_i;
     if (!isDataEdge())
     {
         goto fail;
@@ -200,35 +200,45 @@ NvDlaError engine_ast::Edge::determineSurfaceFormat()
     // Step-1: Capture surf formats suggested by consumer nodes
     for (Graph::NodeUnorderedSetIterator ci = consumers.begin(); ci != consumers.end(); ++ci)
     {
+        gLogInfo<<"\tfrom consumer node:"<<(*ci)->name()<<" "<<std::endl;;
         suggestedSFs.clear();
-        if (isAUXSurface)
+        if (isAUXSurface) //aux一般是向下链接到所属的node
         {
-            suggestedSFs = (*ci)->suggestAuxSurfaceFormats(this);
+            suggestedSFs = (*ci)->suggestAuxSurfaceFormats(this);//无需涉及到输入/输入/本身node support的SF做对比
         }
         else if (isInterimSurface)
         {
-            suggestedSFs = (*ci)->suggestInputSurfaceFormats();
+            suggestedSFs = (*ci)->suggestInputSurfaceFormats();//无需涉及到输入/输入/本身node support的SF做对比
         }
         else if (isBindableSurface)
         {
             suggestedSFs = std::vector<surface::SurfaceFormat>(1, graph()->suggestNwSurfaceFormat(TensorType::kNW_INPUT));
         }
-        std::copy(suggestedSFs.begin(), suggestedSFs.end(), std::inserter(consumerProposedSFs, consumerProposedSFs.end()));
+        std::copy(suggestedSFs.begin(), suggestedSFs.end(), std::inserter(consumerProposedSFs, consumerProposedSFs.end())); 
+        for (suggestedSFs_i = suggestedSFs.begin(); suggestedSFs_i != suggestedSFs.end(); ++suggestedSFs_i)
+            {
+                gLogInfo<<"\t\tsugg SF:"<< suggestedSFs_i->c_str()<<std::endl;
+            }       
     }
 
-    // Step-2: Capture surf formats suggested by producer nodes
+    // Step-2: Capture surf formats suggested by producer nodes有producer的一般都不会是aux
     for (Graph::NodeUnorderedSetIterator pi = producers.begin(); pi != producers.end(); ++pi)
     {
+        gLogInfo<<"\tfrom producers node:"<<(*pi)->name()<<" "<<std::endl;;
         suggestedSFs.clear();
         if (isInterimSurface)
         {
-            suggestedSFs = (*pi)->suggestOutputSurfaceFormats();
+            suggestedSFs = (*pi)->suggestOutputSurfaceFormats();//注意， 涉及到node的输入/输出/node本身support的SF做对比
         }
         else if (isBindableSurface)
         {
             suggestedSFs = std::vector<surface::SurfaceFormat>(1, graph()->suggestNwSurfaceFormat(TensorType::kNW_OUTPUT));
         }
         std::copy(suggestedSFs.begin(), suggestedSFs.end(), std::inserter(producerProposedSFs, producerProposedSFs.end()));
+        for (suggestedSFs_i = suggestedSFs.begin(); suggestedSFs_i != suggestedSFs.end(); ++suggestedSFs_i)
+            {
+                gLogInfo<<"\t\tsugg SF:"<< suggestedSFs_i->c_str()<<std::endl;
+            }  
     }
 
     // Step-3: Find intersection of suggested surf formats from producers and consumers
@@ -241,7 +251,7 @@ NvDlaError engine_ast::Edge::determineSurfaceFormat()
     {
         std::copy(consumerProposedSFs.begin(), consumerProposedSFs.end(), std::inserter(proposedSFs, proposedSFs.end()));
     }
-    else if (isInterimSurface)
+    else if (isInterimSurface)//得到交集
     {
         for (std::set<surface::SurfaceFormat>::iterator csfi = consumerProposedSFs.begin(); csfi != consumerProposedSFs.end(); ++csfi)
         {
@@ -265,11 +275,17 @@ NvDlaError engine_ast::Edge::determineSurfaceFormat()
     {
         // allow surface formats that work with any #channels
         if ((*sfi).channelsPerAtom() == -1)
-            ++sfi;
+            {++sfi;gLogInfo<<"\tSF channelsPerAtom not set"<<std::endl;}
         else if ((*sfi).channelsPerAtom() != tsd->dimensions().c)
-            proposedSFs.erase(sfi++);
+            {proposedSFs.erase(sfi++);gLogInfo<<"\ttsd Not match channelsPerAtom"<<std::endl;}
         else
-            ++sfi;
+            {++sfi;gLogInfo<<"\ttsd match channelsPerAtom"<<(*sfi).channelsPerAtom()<<std::endl;}
+    }
+    
+    gLogInfo<<"After intersection filter and chnPeratom filter, proposed SF:"<<std::endl;
+    for(std::set<surface::SurfaceFormat>::iterator sfi = proposedSFs.begin(); sfi != proposedSFs.end();++sfi)
+    {
+        gLogInfo<<"\t"<<(*sfi).c_str()<<std::endl;
     }
 
     if (proposedSFs.size() == 0)
@@ -357,13 +373,13 @@ NvDlaError engine_ast::Edge::determineSurfaceStrides()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-
+    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"<<originalTensor()->getName()<<"/"<<tsd->surfaceFormat().category().c_str()<<" Line/SF stride, among its all "<<clients.size()<<" consumer&producer node \t";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
         commonLS = std::max<NvU32>(commonLS, (*cli)->suggestLineStride(tsd));
-        commonSS = std::max<NvU32>(commonSS, (*cli)->suggestSurfaceStride(tsd));
+        commonSS = std::max<NvU32>(commonSS, (*cli)->suggestSurfaceStride(tsd));gLogInfo<<" "<<commonLS<<"/"<<commonSS;
     }
-
+    gLogInfo<<std::endl;
     tsd->setLineStride(commonLS);
     tsd->setSurfaceStride(commonSS);
 

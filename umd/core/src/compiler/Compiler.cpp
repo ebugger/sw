@@ -485,7 +485,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         PROPAGATE_ERROR_FAIL( dump_can.visitElems( can_g->scoredOrdering()) );
     }
 
-
+    gLogInfo<<"Generate engine graph..." << std::endl;
     g.push_back( engine_ast::generateGraph(profile, target_config, can_g) );
     if ( !g.back() )
     {
@@ -499,13 +499,13 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         dump_eng.setFilename("engine_g.json");
         PROPAGATE_ERROR_FAIL( dump_eng.visitElems( g.back()->scoredOrdering()) );
     }
-
+    gLogInfo<<"PASS: register Buffers..." << std::endl;
     g.push_back( registerBuffers(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: registerBuffers");
     }
-
+    gLogInfo<<"PASS ..." << std::endl;
     g.push_back( preProcessAuxData(g.back()) );
     if ( !g.back() )
     {

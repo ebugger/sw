@@ -218,7 +218,7 @@ std::vector<surface::SurfaceFormat> engine_ast::ConvCoreNode::suggestAuxSurfaceF
     surface::SurfaceFormat inputSF;
     surface::SurfaceCategory inputCategory;
     surface::SurfacePrecision compPrec = graph()->profile()->computePrecision();
-    std::vector<surface::SurfaceFormat> supportedAuxSFs = supportedAuxSurfFormats();
+    std::vector<surface::SurfaceFormat> supportedAuxSFs = supportedAuxSurfFormats();//构造函数已经更新这个
     std::vector<surface::SurfaceFormat> suggestedAuxSFs;
     std::vector<surface::SurfaceFormat>::iterator auxSFIter;
 
@@ -239,7 +239,7 @@ std::vector<surface::SurfaceFormat> engine_ast::ConvCoreNode::suggestAuxSurfaceF
         suggestedAuxSFs = supportedAuxSFs;
         goto fail;
     }
-
+    //比较OP构造函数初始化添加的sup_SF的精度和SC
     for (auxSFIter = supportedAuxSFs.begin(); auxSFIter != supportedAuxSFs.end(); ++auxSFIter)
     {
         if ((*auxSFIter).precision().v() != compPrec.v())
@@ -255,7 +255,7 @@ std::vector<surface::SurfaceFormat> engine_ast::ConvCoreNode::suggestAuxSurfaceF
             }
             else
             {
-                suggestedAuxSFs.push_back(*auxSFIter);
+                suggestedAuxSFs.push_back(*auxSFIter);//gLogInfo<<"\tsugg SF:"<< auxSFIter->c_str()<<std::endl;
             }
         }
         else
@@ -272,7 +272,7 @@ std::vector<surface::SurfaceFormat> engine_ast::ConvCoreNode::suggestAuxSurfaceF
             }
             else
             {
-                suggestedAuxSFs.push_back(*auxSFIter);
+                suggestedAuxSFs.push_back(*auxSFIter);//gLogInfo<<"\tsugg SF:"<< auxSFIter->c_str()<<std::endl;
             }
         }
     }
@@ -315,7 +315,7 @@ Dims4 engine_ast::ConvCoreNode::suggestSurfaceDims(surface::TensorSurfaceDesc* t
     {
         ORIGINATE_ERROR_FAIL(NvDlaError_BadValue, "TSD %s doesn't belong to %s", tsd->id().c_str(), name().c_str());
     }
-
+    //如果和输入的tsd相同那么直接把输入的
     if (isSrcTSD)
     {
         // src tensor for dc/wg has no special requirements;
@@ -377,8 +377,8 @@ NvU32 engine_ast::ConvCoreNode::suggestLineStride(surface::TensorSurfaceDesc* ts
         surface::TensorSurfaceDesc probeTSD = *tsd;
         Dims4 surfDims = suggestSurfaceDims(tsd);
         probeTSD.setDimensions(surfDims);
-        probeTSD.resetLineStride();
-        lineStride = probeTSD.lineStride();
+        probeTSD.resetLineStride();//重置后
+        lineStride = probeTSD.lineStride();//根据实际的TensorCategory判断
     }
 
     m_nodeTSDLineStride[tsd] = lineStride;
