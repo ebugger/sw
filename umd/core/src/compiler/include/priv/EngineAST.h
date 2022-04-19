@@ -1307,7 +1307,7 @@ public:
     virtual NvU64 suggestSurfaceOffsetInBuffer(surface::TensorSurfaceDesc* tsd);
     virtual memory::TensorBufferDesc* suggestBuffer(surface::TensorSurfaceDesc* tsd);
 
-    virtual NvDlaError preProcessAuxData() { return NvDlaSuccess; }
+    virtual NvDlaError preProcessAuxData() { gLogInfo<<"\tNo task needed."<<std::endl;return NvDlaSuccess; }
     virtual Node*   mergeWithSDPOp(SDPNode* other_op) { return NULL; }
     virtual NvDlaError updateScalingFactors() { return NvDlaSuccess; }
     virtual NvDlaError quantizeAuxData() { return NvDlaSuccess; }
@@ -2536,7 +2536,7 @@ public:
     virtual NvDlaError translateAuxData();
     virtual NvDlaError configureSDPSuperOpSubEngine(SDPSuperOpNode* sdpSuperOp, SDPSubEngineType xN) override;
 
-    bool debugFactorization() { return false; }
+    bool debugFactorization() { return true; }
     virtual void inheritParams(Node* inheritFrom);
     virtual OpParams& params(NvU16 batchId = 0) { return m_mb_op_params->batch(batchId); }
     NvDlaError captureCanonicalBatchNormData();

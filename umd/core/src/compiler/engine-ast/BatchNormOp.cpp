@@ -199,7 +199,7 @@ NvU32 engine_ast::SDPBatchNormOpNode::factorsPerEntity
 
         if ( debugFactorization() )
         {
-            gLogInfo << processedValue << " > " << float(std::numeric_limits<CP>::max())
+            gLogInfo <<"\t" <<processedValue << " > " << float(std::numeric_limits<CP>::max())
                      << " Factorized to " << float(tempFactors) << " after taking " << (nthRoot -1) << "th root!! "
                      << " Updating " << rawValue << " to " << tempFactors << endl;
         }
@@ -226,7 +226,7 @@ NvDlaError engine_ast::SDPBatchNormOpNode::maxFactorsPerEntity
 
     MP* auxBlob = reinterpret_cast<MP*>(const_cast<void*>(auxData.values));
 
-    PROPAGATE_ERROR_FAIL(nodeAuxEdge(&auxEdge));
+    PROPAGATE_ERROR_FAIL(nodeAuxEdge(&auxEdge));//得到edge
 
     if (params().x1Params().mode().v() == SDPModeEnum::SDP_MODE_PER_LAYER)
     {
@@ -544,7 +544,7 @@ NvDlaError engine_ast::SDPBatchNormOpNode::preProcessAuxData()
 
         /* If the varData (FIXME: mean) was factorized, append a scale op post this BN,
          * to multiply the subsequent processed variance factors to the result of this BN
-         */
+         *如果bn的参数有缩放， 后面还需要加一个scale的算子*/
         if (numVarBlobs > 1)
         {
             Tensor* ioTensor;
@@ -560,6 +560,7 @@ NvDlaError engine_ast::SDPBatchNormOpNode::preProcessAuxData()
             for (NvU32 vv = 1; vv < numVarBlobs; ++vv)
             {
                 engine_ast::SDPScaleOpNode* newScaleNode = engine_ast::NodeFactory::newSDPScaleOpNode(NULL, graph());
+                gLogInfo<<"\tnewSDPScaleOpNode node inserted as BN para out of range"<<std::endl;
                 if ( !newScaleNode)
                 {
                     ORIGINATE_ERROR_FAIL(NvDlaError_InsufficientMemory, "Couldn't create adjunct scale op");
@@ -633,8 +634,8 @@ NvDlaError engine_ast::SDPBatchNormOpNode::quantizeAuxData()
     if ( fusedConv )
     {
         PROPAGATE_ERROR_FAIL( fusedConv->verifyEdgePorts() );
-        filterScales = fusedConv->params().filterScales();
-        inTensorScales  = fusedConv->inputEdges().at(0)->originalTensor()->getChannelScales();
+        filterScales = fusedConv->params().filterScales();  //卷积层的每个filter的scale
+        inTensorScales  = fusedConv->inputEdges().at(0)->originalTensor()->getChannelScales();//卷积输入，也就是卷积上一层输出的scale，这个值每个channel应该相同，
     }
     else
     {

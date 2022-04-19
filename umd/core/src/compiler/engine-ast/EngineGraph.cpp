@@ -158,7 +158,7 @@ vector<engine_ast::Edge *> engine_ast::Graph::downstreamDataEdges(engine_ast::No
  *                    \/           \
  *                 (node-2)      (node-3)
  *
- *  e-1 and e-2 are siblings while e-0 is not sibling to any other edge.
+ *  e-1 and e-2 are siblings while e-0 is not sibling to any other edge.比如通过e-1找到父节点node1，然后找node1的下面的子edge，如果子edge不是node1，那就是sibling.
  **/
 vector<engine_ast::Edge *> engine_ast::Graph::siblingDataEdges(engine_ast::Edge* edge)
 {
@@ -730,7 +730,7 @@ engine_ast::Edge *engine_ast::Graph::addDataEdge(engine_ast::Edge *cloneEdge, No
 void engine_ast::Graph::checkDirty()
 {
     if ( dirty() )
-    {
+    {   gLogInfo<<"The aux preproc may add new edge, so refresh the graph and graph state(surf/buff etc.) again...."<<std::endl;
         m_ordering->generate();
         markClean();
     }
@@ -972,8 +972,8 @@ NvDlaError engine_ast::Graph::registerAllSurfaces()
     FOR_EACH(allEdges, EdgeSequenceIterator, registerSurface); //注册所有edge对应的tensor成tsd
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceClients);//添加edge对应的tsd的上下级node作为tsd的producer和consumer
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceFormat);//根据edge的consumer和producer node在创建时初始化的in/out/aux的允许的SFformat的计算精度和compiler的profile的精度做对比,过滤出建议的SF
-    FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceStrides);
-    FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceSize);
+    FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceStrides);//先确定line stride， 再根据h和line stride的乘积确定surface stride
+    FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceSize);//根据不同SFcategory以及surafe stride得到不同的SF size
     FOR_EACH(allEdges, EdgeSequenceIterator, determineSurfaceOffsetInBuffer);
 
     PROPAGATE_ERROR_FAIL( verifyAllSurfaces() );
@@ -1072,6 +1072,7 @@ NvDlaError engine_ast::Graph::preProcessAuxData()
 
     for (NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni)
     {
+        gLogInfo<<"Processing AuxData for node: "<<(*ni)->name()<<"  "<<std::endl;
         PROPAGATE_ERROR_FAIL((*ni)->preProcessAuxData());
     }
 
@@ -1145,7 +1146,7 @@ NvDlaError engine_ast::Graph::mergeUnitScaleOperations()
             if ( debugMathOptz() )
             {
                 if (removeNode)
-                    gLogInfo << "Merging: Sucess" << std::endl;
+                    gLogInfo << "Merging with next unit scale OPs: Sucess" << std::endl;
                 else
                     gLogInfo << "Merging: Not Feasible" << std::endl;
             }
@@ -1472,6 +1473,7 @@ NvDlaError engine_ast::Graph::quantizeAuxData()
 
     for (NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni)
     {
+        gLogInfo<<"quantizeAuxData for node: "<<(*ni)->name()<<std::endl;
         PROPAGATE_ERROR_FAIL((*ni)->quantizeAuxData());
     }
 
@@ -1728,6 +1730,7 @@ NvDlaError engine_ast::Graph::splitNodes()
     NodeSequence allNodes = orderedNodes();
 
     for (NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni) {
+        gLogInfo<<"Spliting node: "<<(*ni)->name()<<std::endl;
         PROPAGATE_ERROR_FAIL((*ni)->splitNodes());
         PROPAGATE_ERROR_FAIL(refreshGraphState());
     }

@@ -678,7 +678,7 @@ NvDlaError engine_ast::ConvCoreNode::quantizeAuxData()
 
     PROPAGATE_ERROR_FAIL( verifyEdgePorts() );
 
-    auxEdge = auxEdges().at(0);
+    auxEdge = auxEdges().at(0);//卷积只有一个aux data
 
     // quantize weights iff computing in low precision
     if (computePrecision.v() != surface::SurfacePrecisionEnum::NVDLA_PRECISION_INT8)
@@ -692,7 +692,7 @@ NvDlaError engine_ast::ConvCoreNode::quantizeAuxData()
         // nop
         goto fail;
     }
-    // if surface precision for aux edge is not int8, then there's no need for quantization
+    // if surface precision for aux edge is not int8, then there's no need for quantization,why?
     else if (auxEdge->tensorSurfaceDesc()->surfaceFormat().f().precision().v() !=
              surface::SurfacePrecisionEnum::NVDLA_PRECISION_INT8)
     {
@@ -804,7 +804,7 @@ NvDlaError engine_ast::ConvCoreNode::mandatoryChnlExtForIMG()
     zeroPadWtTrnsDims = rawWtTrnsDims;
 
     /* Step-1: Zero padding */
-    if (rawWtDims.c != dataInputDims.c)
+    if (rawWtDims.c != dataInputDims.c)//输入权重和输入channel不同的话，先直接把channel拓展，然后填充零
     {
         zeroPadWtTrnsDims = WeightTrns::WeightDims(rawWts.count * dataInputDims.c / rawWtDims.c,
                                                     rawWtDims.n, dataInputDims.c, rawWtDims.w, rawWtDims.h,
@@ -819,17 +819,21 @@ NvDlaError engine_ast::ConvCoreNode::mandatoryChnlExtForIMG()
         }
         zeroPadDims = Dims4(zeroPadWtTrnsDims.numKernels, zeroPadWtTrnsDims.numChannels,
                             zeroPadWtTrnsDims.height, zeroPadWtTrnsDims.width);
-        auxEdge->tensorSurfaceDesc()->setDimensions(zeroPadDims);
+        auxEdge->tensorSurfaceDesc()->setDimensions(zeroPadDims);//更新填充后的tsd
 
         // update raw weights to the zero padded weights
-        params().setRawWeights(zeroPadWts);
+        params().setRawWeights(zeroPadWts);gLogInfo<<"\tZero padding for (IMG)conv weights from dim:"
+                                                    <<"["<<rawWtDims.n<<","<<rawWtDims.c<<","<<rawWtDims.w<<","<<rawWtDims.h<<"]"
+                                                    <<" to "
+                                                    <<"["<<zeroPadDims.n<<","<<zeroPadDims.c<<","<<zeroPadDims.w<<","<<zeroPadDims.h<<"]"
+                                                    <<std::endl;
     }
 
     /* Step-2: Mandatory pre-channel extension */
     preChnlExtWtTrnsDims = WeightTrns::WeightDims(zeroPadWts.count,
                                                   zeroPadDims.n, (zeroPadDims.c * zeroPadDims.w), 1, zeroPadDims.h,
-                                                  (int)params().stride().w, (int)params().stride().h);
-    PRECISION_SWITCH(rawWts.type.v(), computePrecision.v(), preChnlExtWts, WeightTrns::preChnlExtWtsForIMG,
+                                                  (int)params().stride().w, (int)params().stride().h);  //把w拉进c里面
+    PRECISION_SWITCH(rawWts.type.v(), computePrecision.v(), preChnlExtWts, WeightTrns::preChnlExtWtsForIMG, //combile multiple colum
                                                                             zeroPadWtTrnsDims,
                                                                             preChnlExtWtTrnsDims,
                                                                             zeroPadWts);
@@ -842,7 +846,11 @@ NvDlaError engine_ast::ConvCoreNode::mandatoryChnlExtForIMG()
     preChnlExtDims = Dims4(preChnlExtWtTrnsDims.numKernels, preChnlExtWtTrnsDims.numChannels,
                             preChnlExtWtTrnsDims.height, preChnlExtWtTrnsDims.width);
     auxEdge->tensorSurfaceDesc()->setDimensions(preChnlExtDims);
-
+    params().setRawWeights(zeroPadWts);gLogInfo<<"\tpre_ext (IMG)conv weights from dim:"
+                                                <<"["<<zeroPadDims.n<<","<<zeroPadDims.c<<","<<zeroPadDims.w<<","<<zeroPadDims.h<<"]"
+                                                <<" to "
+                                                <<"["<<preChnlExtDims.n<<","<<preChnlExtDims.c<<","<<preChnlExtDims.w<<","<<preChnlExtDims.h<<"]"
+                                                <<std::endl;
     // update raw weights to the pre-channel-extended weights
     params().setRawWeights(preChnlExtWts);
 
@@ -868,7 +876,7 @@ NvDlaError engine_ast::ConvCoreNode::optionalChnlExtForIMG()
     NvU32 origWtWidth       = params().weightDims().w;
     NvU32 convXStride       = params().stride().w;
 
-    Weights preChnlExtWts = params().rawWeights();
+    Weights preChnlExtWts = params().rawWeights();//先拓展后填充了0， 然后把w拉进c里面拼起来
     Weights postChnlExtWts;
 
     WeightTrns::WeightDims preChnlExtWtTrnsDims;
@@ -1078,7 +1086,7 @@ NvDlaError engine_ast::ConvCoreNode::preProcessAuxData()
     // pre and/or post Chnl Ext for IMG Conv
     if (isIMGConv)
     {
-        PROPAGATE_ERROR_FAIL( quantizeAuxData() );
+        PROPAGATE_ERROR_FAIL( quantizeAuxData() );gLogInfo<<"\tQuantize weights as aux edge: "<<auxEdges().at(0)->id()<<std::endl;
     }
 
     // pre-process weights for grouped DC/WG/Deconv convolutions
@@ -1461,7 +1469,7 @@ NvDlaError engine_ast::ConvCoreNode::fuseOnTheFlyNodes()
             if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
             {
                 dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, *cni);
-                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);
+                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tFuse "<<this->name()<< " with "<<(*cni)->name()<<std::endl;
             }
         }
     }

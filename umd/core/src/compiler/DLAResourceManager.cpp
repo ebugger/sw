@@ -136,7 +136,7 @@ std::vector< surface::TensorSurfaceDesc *> DLAResourceManager::getSurfaceDescs()
 
 TensorBufferDesc* DLAResourceManager::regTensorBufferDesc(NvU16 numBatches)
 {
-    TensorBufferDesc* tbd = new TensorBufferDesc(numBatches);
+    TensorBufferDesc* tbd = new TensorBufferDesc(numBatches);//创建初始化tbd
 
     std::string bID = nextBufferId();
     tbd->setId(bID);

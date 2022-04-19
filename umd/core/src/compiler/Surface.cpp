@@ -75,11 +75,11 @@ NvU64 TensorSurfaceDesc::size()
     switch(m_surface_format.category().v())
     {
         case SurfaceCategoryEnum::IMG:              size = IMGDesc::size(this); break;
-        case SurfaceCategoryEnum::FEATURE_DATA:     size = FeatureDataDesc::size(this); break;
-        case SurfaceCategoryEnum::WEIGHT:           size = WeightDesc::size(this); break;
-        case SurfaceCategoryEnum::BIAS_DATA:        size = BiasDataDesc::size(this); break;
-        case SurfaceCategoryEnum::BATCH_NORM_DATA:  size = BatchNormDataDesc::size(this); break;
-        case SurfaceCategoryEnum::SCALE_DATA:       size = ScaleDataDesc::size(this); break;
+        case SurfaceCategoryEnum::FEATURE_DATA:     size = FeatureDataDesc::size(this); break;//surface_stride * channel_group(profile中定义？)
+        case SurfaceCategoryEnum::WEIGHT:           size = WeightDesc::size(this); break; //根据weights的大小取地 c buffer的最小整数倍
+        case SurfaceCategoryEnum::BIAS_DATA:        size = BiasDataDesc::size(this); break;//per_channel: n*c*h*elt_size,如果OP做了rescale/requant的话，那么每个channel还会多出一个量化参数，所以容量加倍
+        case SurfaceCategoryEnum::BATCH_NORM_DATA:  size = BatchNormDataDesc::size(this); break; //按照每个channel， 一个mean 一个variance，同样如果做rescale/requant的话会多一倍数据
+        case SurfaceCategoryEnum::SCALE_DATA:       size = ScaleDataDesc::size(this); break;//per_channel: n*c*h*elt_size,同样如果做rescale/requant的话会多一倍数据
         default:
         {
             size = 0;
@@ -103,10 +103,10 @@ NvU32 TensorSurfaceDesc::lineStride()
     switch(m_surface_format.category().v())
     {
         case SurfaceCategoryEnum::IMG:              ls = IMGDesc::lineStride(this); break;
-        case SurfaceCategoryEnum::FEATURE_DATA:     ls = FeatureDataDesc::lineStride(this); break;
-        case SurfaceCategoryEnum::BIAS_DATA:        ls = BiasDataDesc::lineStride(this); break;
-        case SurfaceCategoryEnum::BATCH_NORM_DATA:  ls = BatchNormDataDesc::lineStride(this); break;
-        case SurfaceCategoryEnum::SCALE_DATA:       ls = ScaleDataDesc::lineStride(this); break;
+        case SurfaceCategoryEnum::FEATURE_DATA:     ls = FeatureDataDesc::lineStride(this); break; //w*atomicKSize*eltsize
+        case SurfaceCategoryEnum::BIAS_DATA:        ls = BiasDataDesc::lineStride(this); break; //Eltwise
+        case SurfaceCategoryEnum::BATCH_NORM_DATA:  ls = BatchNormDataDesc::lineStride(this); break; //Eltwise
+        case SurfaceCategoryEnum::SCALE_DATA:       ls = ScaleDataDesc::lineStride(this); break; //Eltwise
         case SurfaceCategoryEnum::WEIGHT:           ls = 0; break;
         default:
             REPORT_ERROR(NvDlaError_NotSupported, "Unsupported surface category: %s", m_surface_format.category().c_str());
@@ -128,10 +128,10 @@ NvU32 TensorSurfaceDesc::surfaceStride()
     switch(m_surface_format.category().v())
     {
         case SurfaceCategoryEnum::IMG:              ss = 0; break;
-        case SurfaceCategoryEnum::FEATURE_DATA:     ss = FeatureDataDesc::surfaceStride(this); break;
-        case SurfaceCategoryEnum::BIAS_DATA:        ss = BiasDataDesc::surfaceStride(this); break;
-        case SurfaceCategoryEnum::BATCH_NORM_DATA:  ss = BatchNormDataDesc::surfaceStride(this); break;
-        case SurfaceCategoryEnum::SCALE_DATA:       ss = ScaleDataDesc::surfaceStride(this); break;
+        case SurfaceCategoryEnum::FEATURE_DATA:     ss = FeatureDataDesc::surfaceStride(this); break;//linestride * h
+        case SurfaceCategoryEnum::BIAS_DATA:        ss = BiasDataDesc::surfaceStride(this); break;//linestride * h
+        case SurfaceCategoryEnum::BATCH_NORM_DATA:  ss = BatchNormDataDesc::surfaceStride(this); break; //linestride * h
+        case SurfaceCategoryEnum::SCALE_DATA:       ss = ScaleDataDesc::surfaceStride(this); break;//linestride * h
         case SurfaceCategoryEnum::WEIGHT:           ss = 0; break;
         default:
             REPORT_ERROR(NvDlaError_NotSupported, "Unsupported surface category: %s", m_surface_format.category().c_str());
@@ -362,7 +362,7 @@ NvU32 EltwiseDataDesc::channelGroups(const TensorSurfaceDesc* tsd)
     return (NvU32)ceilf((NvF32)tsd->dimensions().c / (NvF32)channelsPerGroup(tsd));
 }
 
-NvU32 EltwiseDataDesc::lineStride(const TensorSurfaceDesc* tsd)
+NvU32 EltwiseDataDesc::lineStride(const TensorSurfaceDesc* tsd) //bias/batchnorm
 {
     return tsd->dimensions().w * channelsPerGroup(tsd) * tsd->surfaceFormat().bytesPerElement();
 }
@@ -493,12 +493,12 @@ NvU32 WeightDesc::wmb(const TensorSurfaceDesc* tsd)
     NVDLA_UNUSED(tsd);
     return 0;
 }
-
+//根据weights的大小取得c buffer的最小整数倍
 NvU64 WeightDesc::size(const TensorSurfaceDesc* tsd)
 {
     nvdla::priv::engine_ast::Edge *edge_par =  tsd->parentEdge();
     NvU32 cbuf_bank_width = edge_par->graph()->target_config()->bufEntryWidth();
-
+    gLogInfo<<"\tCbuf_bank_width:"<<cbuf_bank_width<<std::endl;
     return ROUNDUP_AND_ALIGN(tsd->dimensions().n *
                              tsd->dimensions().c *
                              tsd->dimensions().h *

@@ -359,7 +359,7 @@ NvU64 engine_ast::SDPNode::suggestSurfaceOffsetInBuffer(surface::TensorSurfaceDe
          */
         if (srcTSD->tensorCategory() == memory::TensorCategoryEnum::STREAM_TENSOR)
         {
-            offset = srcTSD->bufferOffset();
+            offset = srcTSD->bufferOffset();gLogInfo<<"\t(input STREAM_TENSOR)Copy offset from "<<srcTSD->name()<<std::endl;
         }
         else
         {
@@ -514,8 +514,8 @@ NvDlaError engine_ast::SDPNode::fuseOnTheFlyNodes()
                 // FIXME: add logic to determine sub-engine requirements and then fuse
                 if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
                 {
-                    dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));
-                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);
+                    dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));gLogInfo<<"\tSPD OP Fuse "<<this->name() << " -> with (downstream) "<<(*cni)->name()<<std::endl;
+                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tSPD OP Fuse with (upstream) "<<this->name() << " <- "<<(*cni)->name()<<std::endl;
                 }
             }
         }
@@ -566,7 +566,7 @@ engine_ast::Node* engine_ast::SDPNode::mergeUnitScaleOp(SDPNode* SDPScaleOp)
     SDPScaleOpNode* scaleOp = NodeFactory::nodeCast<SDPScaleOpNode*>(SDPScaleOp);
 
     if (scaleOp->params(/*batch_id*/0).x1Params().actType().v() == SDPActTypeEnum::SDP_ACT_TYPE_RELU)
-    {
+    {   gLogInfo<<"\tdectect act type SDP_ACT_TYPE_RELU"<<endl;
         switch(engineOpType().v()) {
             case EngineOpTypeEnum::SDP_BIAS:
                 NodeFactory::nodeCast<SDPBiasOpNode*>(this)->params(/*batch_id*/0).x1Params().setActType(

@@ -170,9 +170,9 @@ class WeightTrns
 
         //! Quantize weights per-kernel (1 scaling factor for the entire KCRS blob)
         template <typename MP, typename CP>
-        static std::vector<NvF32> perKernelQuantizeWts
+        static std::vector<NvF32> perKernelQuantizeWts//量化
         (
-            Weights highPrecWts,
+            Weights highPrecWts, //float weights, etc.
             NvS32 G, NvS32 K, NvS32 C, NvS32 RS, NvS32 kStride, NvS32 cStride,
             NvS8* quantizedWts
         )
@@ -269,7 +269,7 @@ class WeightTrns
         }
 
         //!<  Zero pad caffe wts to match its #chnls with IMG input
-        template<typename IT, typename RT>
+        template<typename IT, typename RT> //raw/comp
         static Weights zeroPadWtsForIMG
         (
             WeightDims  origWDims,              //!<  dims of orig caffe wt blob
@@ -288,17 +288,17 @@ class WeightTrns
             int zpS = zeroPadWDims.width;
             int zpC = zeroPadWDims.numChannels;
             int zpK = zeroPadWDims.numKernels;
-            int zpSize = zeroPadWDims.wtSize;
+            int zpSize = zeroPadWDims.wtSize;//重新分配空间大小
 
-            IT* pIMGZPWts = reinterpret_cast<IT*>(engine_ast::MemoryCollector::getInstance()->allocateMemory(zpSize * sizeof(IT)));
+            IT* pIMGZPWts = reinterpret_cast<IT*>(engine_ast::MemoryCollector::getInstance()->allocateMemory(zpSize * sizeof(IT)));//重新分配空间
             memset(pIMGZPWts, 0, zpSize * sizeof(IT));
             IT* pIMGZPWtsCopy = pIMGZPWts;
 
             for (int ind_k = 0; ind_k < zpK; ++ind_k)
-                for (int ind_c = 0; ind_c < zpC; ++ind_c)
+                for (int ind_c = 0; ind_c < zpC; ++ind_c)//转换后的channel
                     for (int ind_r = 0; ind_r < zpR; ++ind_r)
                         for (int ind_s = 0; ind_s < zpS; ++ind_s)
-                        {
+                        { //原有的部分copy， 原来没有的部分现在补零，注意算offset的细节， 越界返回NULL
                             IT* dest = getAddrOffset<IT>(ind_k, ind_c, ind_r, ind_s,
                                                          zeroPadWDims, pIMGZPWts);
                             IT* src  = getAddrOffset<IT>(ind_k, ind_c, ind_r,
@@ -315,10 +315,10 @@ class WeightTrns
 
             if (trnsSize != zeroPadWDims.wtSize)
             {
-                return IMG_ZP_wts;
+                return IMG_ZP_wts;gLogWarning<<"trnsSize != zeroPadWDims.wtSize"<<std::endl;
             }
 
-            IMG_ZP_wts.type   = getEnumFromType<IT>();
+            IMG_ZP_wts.type   = getEnumFromType<IT>();//用IT类的最大值判断类型
             IMG_ZP_wts.values = pIMGZPWtsCopy;
             IMG_ZP_wts.count  = zeroPadWDims.wtSize;
 
@@ -416,7 +416,7 @@ class WeightTrns
 
             int origK = origWDims.numKernels;
 
-            int ceS = preCEWDims.width;
+            int ceS = preCEWDims.width;//w已经被拉进c里面了
             int ceR = preCEWDims.height;
             int ceC = preCEWDims.numChannels;
             int ceK = preCEWDims.numKernels;
@@ -463,7 +463,7 @@ class WeightTrns
         template<typename IT, typename RT>
         static Weights postChnlExtWtsForIMG
         (
-            WeightDims    wDims,          //!< dims of wt blob before post Chnl Extension
+            WeightDims    wDims,          //!< dims of wt ext blob before post Chnl Extension
             Weights       srcWts,         //!< ptr to orig caffe wt blob
             NvU32         postExtFactor,  //!< factor(1,2 or 4) upto which extension should be made
             bool          &postChnlExtWtsSuccess,
@@ -1370,7 +1370,7 @@ class WeightTrns
                 unitScaleValues[0] = 1;
                 trnsCnt++;
             }
-            else if (scaleMode.v() == engine_ast::SDPModeEnum::SDP_MODE_PER_CHANNEL)
+            else if (scaleMode.v() == engine_ast::SDPModeEnum::SDP_MODE_PER_CHANNEL) //调用函数只能走这个分支？
             {
                 int c = 0;
                 for ( ; c < scaleDims.c; ++c)
@@ -1581,12 +1581,12 @@ class WeightTrns
         };
 
         struct IMGAtomicWtOp {
-            Oplimits kg;    //!<  the prevalent kernel group
-            Oplimits rg;    //!<  number of vertical lines in 1 atomic wt op
-            Oplimits s;     //!<  kernel width to be covered in 1 atomic wt op
-            Oplimits k;     //!<  number of kernels to be covered in 1 atomic wt op
-            Oplimits r;     //!<  kernel height to be covered in 1 atomic wt op
-            Oplimits c;     //!<  number of channels to be covered in 1 atomic wt op
+            Oplimits kg;    //!<  the prevalent kernel group 注意是GROUP
+            Oplimits rg;    //!<  number of vertical lines in 1 atomic wt op 注意是GROUP
+            Oplimits s;     //!<  kernel width to be covered in 1 atomic wt op  注意是w
+            Oplimits k;     //!<  number of kernels to be covered in 1 atomic wt op 注意是krn#
+            Oplimits r;     //!<  kernel height to be covered in 1 atomic wt op 注意是h
+            Oplimits c;     //!<  number of channels to be covered in 1 atomic wt op 注意是c
 
             IMGAtomicWtOp(Oplimits kg,
                           Oplimits rg,
@@ -1685,12 +1685,12 @@ class WeightTrns
 
         //!<  determine position in the raw caffe weights from array indexes suitable for IMD Pre Chnl Ext
         template <typename T>
-        static T* getCaffeAddrForIMGPreChnlExt
+        static T* getCaffeAddrForIMGPreChnlExt//传入的参数是新的把w拉进c后的坐标
         (
             int indK,                   //!<  kernel index in the raw caffe wt blob
             int indC,                   //!<  channel index
             int indR,                   //!<  row index
-            int indS,                   //!<  channel index
+            int indS,                   //!<  col index 外层循环变化最快
             WeightDims caffeWDims,      //!<  dims of the wt blob
             T* pCaffeWts                //!<  pts to the wt blob
         )
@@ -1700,11 +1700,11 @@ class WeightTrns
             int caffeC = caffeWDims.numChannels;
             NVDLA_UNUSED(indS); // indS is always 1 for pre Chnl Ext
 
-            int ind_s = indC / caffeC;
+            int ind_s = indC / caffeC; //新的c变化快，也就是多次在原来的一个c里面取值后才跳入到下一个c，也就是c1,c1,c1...c2,c2,c2....
             int ind_r = indR;
-            int ind_c = indC % caffeC;
+            int ind_c = indC % caffeC;//新的c在原来的c里面是依次轮询
 
-            if (ind_s < caffeS && ind_r < caffeR && ind_c < caffeC)
+            if (ind_s < caffeS && ind_r < caffeR && ind_c < caffeC) //要返回的是新坐标在原坐标的值
                 return &pCaffeWts[ind_s +
                           caffeS*(ind_r +
                           caffeR*(ind_c +
@@ -1776,14 +1776,16 @@ class WeightTrns
             int c   = wDims.numChannels;
             int rf  = postExtFactor;
             int kf  = (sizeof(RT) == 1 ? atomicKSize : (atomicKSize / 2));
-            int rfg = wDims.height / rf;
-            int kfg = wDims.numKernels / kf;
-            int rp  = wDims.height % rf;
-            int kp  = wDims.numKernels % kf;
-            int rpg = 1;    //!<  partial row group will always be 1 in number if any
+            int rfg = wDims.height / rf;  //把h方向也拉进c方向拼凑出c<=64的group数目
+            int kfg = wDims.numKernels / kf; //kernel分组数
+            int rp  = wDims.height % rf; //剩余的h方向，如果有剩余就需要单独一个group来处理
+            int kp  = wDims.numKernels % kf;//kernel剩余的组
+            int rpg = 1;    //!<  partial row group will always be 1 in number if any 注意剩余的一定是唯一一个group，但不饱和
             int kpg = 1;    //!<  partial kernel group will always be 1 in number if any
-
-            const int FULL_ROWS_PER_GROUP = rf;
+            gLogInfo<<"\tbreak up the weights into sub-ops for IMG_conv post_chn_ext:"<<kfg<<"/"<<(kp > 0 ? 1 : 0)<<" of full/Partital Krn groups with atomic/K: " <<kf<<" and total #krn:"<<wDims.numKernels<<std::endl;
+                                                                     gLogInfo<<"\t\t"<<rfg<<"/"<<(rp > 0 ? 1 : 0)<<" of full/Partital Row groups with atomic/K: " <<atomicCSize<<" and postExtFactor(rows_per_grp):"<<rf
+                                                                             <<" from Chn "<<c<<std::endl;
+            const int FULL_ROWS_PER_GROUP = rf;//拼凑出c<=64的group需要多少row， 这个在前面已经算出了0
 
             if (c > atomicCSize || rfg <= 1)
                 return;
@@ -1801,12 +1803,12 @@ class WeightTrns
                     if (isFullRowGroupsPoss)
                     {
                         vWtOps.push_back(
-                                IMGAtomicWtOp(Oplimits(ind_kfg, 1),
-                                           Oplimits(0, rfg),
-                                           Oplimits(0, s),
-                                           Oplimits(0, kf),
-                                           Oplimits(0, rf),
-                                           Oplimits(0, c)));
+                                IMGAtomicWtOp(Oplimits(ind_kfg, 1),//第n个kernel group
+                                           Oplimits(0, rfg), //有多少个row group
+                                           Oplimits(0, s),  //w方向被变换后始终是1？
+                                           Oplimits(0, kf),  //从0开始到atomc_K个kernel
+                                           Oplimits(0, rf),//从0开始， rf个row拼凑成<atomc_K的channel
+                                           Oplimits(0, c)));//每个拼凑的c有多少
                     }
                     if (isPartRowGroupsPoss)
                     {
@@ -1815,7 +1817,7 @@ class WeightTrns
                                            Oplimits(0, rpg),
                                            Oplimits(0, s),
                                            Oplimits(0, kf),
-                                           Oplimits(rfg * FULL_ROWS_PER_GROUP, rp),
+                                           Oplimits(rfg * FULL_ROWS_PER_GROUP, rp), //从row_full_group_number * row_per_group的row开始， rp个row进行拼凑
                                            Oplimits(0, c)));
                     }
                 }
@@ -1827,7 +1829,7 @@ class WeightTrns
                 if (isFullRowGroupsPoss)
                 {
                     vWtOps.push_back(
-                            IMGAtomicWtOp(Oplimits(kfg, kpg),
+                            IMGAtomicWtOp(Oplimits(kfg, kpg),//从第kfg个kernel group开始，用一个group继续处理剩余的kernel
                                        Oplimits(0, rfg),
                                        Oplimits(0, s),
                                        Oplimits(0, kp),
@@ -1848,7 +1850,7 @@ class WeightTrns
         }
 
         //!<  execute the wt translation sub-ops for IMG Post Chnl Ext
-        template <typename IT, typename RT>
+        template <typename IT, typename RT> //IT- input/raw  RTR- Return/compute procision
         static Weights execWtTrnsOpsForIMGPostCE
         (
             WeightDims                        wDims,       //!<  dims of the conv layer wts
@@ -1875,32 +1877,32 @@ class WeightTrns
             int ind_c = 0;
             int krnlPerGrp = (sizeof(RT) == 1 ? atomicKSize : (atomicKSize / 2));
 
-            const int FULL_ROWS_PER_GROUP = atomicCSize / wDims.numChannels;
+            const int FULL_ROWS_PER_GROUP = atomicCSize / wDims.numChannels; //== postExtFactor?
 
             std::vector<IMGAtomicWtOp>::const_iterator iterWtOp = vWtOps.begin();
-            for ( ; iterWtOp != vWtOps.end(); ++iterWtOp)
+            for ( ; iterWtOp != vWtOps.end(); ++iterWtOp)  //5->4->3->2->1看出先轮询channel，再用row拼接成向量，然后和不同的kernel点乘，然后网w方向移动重复，最后再原始的h方向做group
             {
-                for (ind_rg = iterWtOp->rg.startIndex;
+                for (ind_rg = iterWtOp->rg.startIndex;  //1 row group轮询 (多个row拼接成<=atomic_C的向量)
                      ind_rg < iterWtOp->rg.limit;
                      ++ind_rg)
                 {
-                    for (ind_s = iterWtOp->s.startIndex;
+                    for (ind_s = iterWtOp->s.startIndex; //2 w index 始终为1？
                          ind_s < iterWtOp->s.limit;
                          ++ind_s)
                     {
-                        for (ind_k = iterWtOp->kg.startIndex*krnlPerGrp;
+                        for (ind_k = iterWtOp->kg.startIndex*krnlPerGrp;   //3 每组kernel group里面轮询kernel
                              ind_k < iterWtOp->kg.startIndex*krnlPerGrp +
                                      iterWtOp->k.limit;
                              ++ind_k)
                         {
-                            for (ind_r = ind_rg*FULL_ROWS_PER_GROUP +
+                            for (ind_r = ind_rg*FULL_ROWS_PER_GROUP +    //4 每组row row
                                          iterWtOp->r.startIndex;
                                  ind_r < (ind_rg*FULL_ROWS_PER_GROUP +
                                          iterWtOp->r.startIndex +
                                          iterWtOp->r.limit);
                                  ++ind_r)
                             {
-                                for (ind_c = iterWtOp->c.startIndex;
+                                for (ind_c = iterWtOp->c.startIndex;   //5 轮询原始的channel
                                      ind_c < iterWtOp->c.limit;
                                      ++ind_c)
                                 {
@@ -1923,7 +1925,7 @@ class WeightTrns
                     }
                 }
             }
-
+            gLogInfo<<"\texec the transform OPs to fix the weights as DLA H/W layout."<<std::endl;
             IMG_Post_CE_Wts.type   = getEnumFromType<RT>();
             IMG_Post_CE_Wts.values = pIMGPostCEWtsCopy;
             IMG_Post_CE_Wts.count  = trnsCnt;

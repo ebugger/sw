@@ -486,7 +486,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     }
 
     gLogInfo<<"Generate engine graph..." << std::endl;
-    g.push_back( engine_ast::generateGraph(profile, target_config, can_g) );
+    g.push_back( engine_ast::generateGraph(profile, target_config, can_g) );//注意排序后的edge顺序似乎是权重都拍前面的， feature后面？
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: generateGraph");
@@ -505,25 +505,25 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: registerBuffers");
     }
-    gLogInfo<<"PASS ..." << std::endl;
+    gLogInfo<<"PASS: preProcessAuxData(cvt SUB/DIV to ADD/MUL ops and Quantize/transform layout for IMG input layer weights and contrain BN none-repst value)" << std::endl;
     g.push_back( preProcessAuxData(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compulation phase: preProcessAuxData");
     }
-
+    gLogInfo<<"PASS: Adjacent activation ops with same precision(bias/scale/bias+scale->bn)" << std::endl;
     g.push_back( mergeActivationOperations(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: mergeActivationOperations");
     }
-
+    gLogInfo<<"PASS: Elt Ops scale process." << std::endl;
     g.push_back( updateScalingFactors(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: updateScalingFactors");
     }
-
+    gLogInfo<<"PASS: Quantize all Aux Data.." << std::endl;
     g.push_back( quantizeAuxData(g.back()) );
     if ( !g.back() )
     {
@@ -541,7 +541,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: handleLowPrecisionConversions");
     }
-
+    gLogInfo<<"PASS: transform the layout for all Aux Data.." << std::endl;
     g.push_back( translateAuxData(g.back()) );
     if ( !g.back() )
     {
@@ -554,13 +554,13 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: reserveBuffers");
     }
 
-    /*
+    ///*
     g.push_back( groupAtomicOperations(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: groupAtomicOperations");
     }
-    */
+    //*/
 
     g.push_back( splitNodes(g.back()) );
     if ( !g.back() )
@@ -1583,8 +1583,8 @@ engine_ast::Graph *Compiler::registerBuffers(engine_ast::Graph *input_graph)
     // before registering buffers, we should populate the edges of the eng_ast with
     // tensor surface descriptors and then reserve buffers for suitable edges
     //
-    PROPAGATE_ERROR_FAIL(graph->registerAllSurfaces());
-    PROPAGATE_ERROR_FAIL(graph->registerAllBuffers());
+    PROPAGATE_ERROR_FAIL(graph->registerAllSurfaces());//有计算size大小的动作
+    PROPAGATE_ERROR_FAIL(graph->registerAllBuffers());//仅仅是注册TBD
 
     return graph;
 

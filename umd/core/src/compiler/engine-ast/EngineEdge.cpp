@@ -373,11 +373,15 @@ NvDlaError engine_ast::Edge::determineSurfaceStrides()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"<<originalTensor()->getName()<<"/"<<tsd->surfaceFormat().category().c_str()<<" Line/SF stride, among its all "<<clients.size()<<" consumer&producer node \t";
+    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+                                    <<originalTensor()->getName()<<"/"
+                                    <<originalTensor()->tt_cstr()<<"/"
+                                    <<tsd->surfaceFormat().category().c_str()<<" Line/SF stride, among its all "
+                                    <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
         commonLS = std::max<NvU32>(commonLS, (*cli)->suggestLineStride(tsd));
-        commonSS = std::max<NvU32>(commonSS, (*cli)->suggestSurfaceStride(tsd));gLogInfo<<" "<<commonLS<<"/"<<commonSS;
+        commonSS = std::max<NvU32>(commonSS, (*cli)->suggestSurfaceStride(tsd));gLogInfo<<" for node: "<<(*cli)->name() <<" "<<commonLS<<"/"<<commonSS;
     }
     gLogInfo<<std::endl;
     tsd->setLineStride(commonLS);
@@ -417,12 +421,16 @@ NvDlaError engine_ast::Edge::determineSurfaceSize()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-
+    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+                                    <<originalTensor()->getName()<<"/"
+                                    <<originalTensor()->tt_cstr()<<"/"
+                                    <<tsd->surfaceFormat().category().c_str()<<" SF Size, among its all "
+                                    <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
-        commonSize = std::max<NvU64>(commonSize, (*cli)->suggestSurfaceSize(tsd));
+        commonSize = std::max<NvU64>(commonSize, (*cli)->suggestSurfaceSize(tsd));gLogInfo<<"\tfor node: "<<(*cli)->name() <<" "<<commonSize;
     }
-
+    gLogInfo<<std::endl;
     tsd->setSize(commonSize);
 
 fail:
@@ -454,13 +462,17 @@ NvDlaError engine_ast::Edge::determineSurfaceOffsetInBuffer()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-
+    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+                                    <<originalTensor()->getName()<<"/"
+                                    <<originalTensor()->tt_cstr()<<"/"
+                                    <<tsd->surfaceFormat().category().c_str()<<" SF Offset, among its all "
+                                    <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
         // arguably, all client nodes should report the same surface offset in buffer
-        bufferOffset = std::max<NvU64>(bufferOffset, (*cli)->suggestSurfaceOffsetInBuffer(tsd));
+        bufferOffset = std::max<NvU64>(bufferOffset, (*cli)->suggestSurfaceOffsetInBuffer(tsd));gLogInfo<<"\tfor node: "<<(*cli)->name() <<" "<<bufferOffset;
     }
-
+    gLogInfo<<std::endl;
     tsd->setBufferOffset(bufferOffset);
 
 fail:
@@ -845,7 +857,11 @@ NvDlaError engine_ast::Edge::registerBuffer()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-
+    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+                                    <<originalTensor()->getName()<<"/"
+                                    <<originalTensor()->tt_cstr()<<"/"
+                                    <<tsd->surfaceFormat().category().c_str()<<" TBD, among its all "
+                                    <<clients.size()<<" consumer&producer node "<<std::endl;
     commonTBD = tsd->tensorBufferDesc();
     if ( !commonTBD )
     {
@@ -855,7 +871,7 @@ NvDlaError engine_ast::Edge::registerBuffer()
         {
             if ((*cli)->isSoftwareNode())
             {
-                commonTBD = (*cli)->suggestBuffer(tsd);
+                commonTBD = (*cli)->suggestBuffer(tsd);gLogWarning<<"SW NODE"<<std::endl;
                 break;
             }
         }
@@ -871,15 +887,16 @@ NvDlaError engine_ast::Edge::registerBuffer()
         {
             for (cli = clients.begin(); cli != clients.end(); ++cli)
             {
-                currTBD = (*cli)->suggestBuffer(tsd);
-                if (cli == clients.begin())
+                currTBD = (*cli)->suggestBuffer(tsd);//检查tsd是否属于输入/输出/aux，如果tbd不存在就创建
+                if (cli == clients.begin())//set的顺序似乎是会变化的，和hash有关，所以这个有关系吗？https://stackoverflow.com/questions/26413490/stdunordered-set-insert-get-the-position-where-item-was-inserted
                 {
                     commonTBD = currTBD;
-                    tsd->setTensorBufferDesc(commonTBD);
+                    tsd->setTensorBufferDesc(commonTBD);gLogInfo<<" \tfor Node:"<<(*cli)->name()<<" set initial TBD:"<<commonTBD->id()<<" with tsdid: "<<tsd->id()<<" and SFF: "<<tsd->surfaceFormat().c_str()<<std::endl;
                 }
                 else
                 {
-                    ASSERT(currTBD == commonTBD);
+                    ASSERT(currTBD == commonTBD);//如果上一步已经设置了，轮询后两个值应该相同gLogWarning<<"TBD has been set?"<<std::endl;
+                
                 }
             }
         }
@@ -888,11 +905,11 @@ NvDlaError engine_ast::Edge::registerBuffer()
     PROPAGATE_ERROR_FAIL( commonTBD->addSurface(tsd) );
     if ( graph()->debugBuffers() )
     {
-        gLogInfo << commonTBD->id() << " for " << tsd->id() << " for " << id() << " with " << tsd->surfaceFormat().c_str() << endl;
+        //gLogInfo << commonTBD->id() << " for " << tsd->id() << " for " << id() << " with " << tsd->surfaceFormat().c_str() << endl;
     }
 
 fail:
-    return e;
+     return e;
 }
 
 NvDlaError engine_ast::Edge::verifyBuffer()

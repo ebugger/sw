@@ -536,7 +536,7 @@ NvU64 engine_ast::Node::suggestSurfaceOffsetInBuffer(surface::TensorSurfaceDesc*
 {
     return tsd->bufferOffset();
 }
-
+//检查tsd是否属于输入/输出/aux，如果tbd不存在就创建
 memory::TensorBufferDesc* engine_ast::Node::suggestBuffer(surface::TensorSurfaceDesc* tsd)
 {
     NvDlaError e = NvDlaSuccess;
@@ -554,7 +554,7 @@ memory::TensorBufferDesc* engine_ast::Node::suggestBuffer(surface::TensorSurface
     outEdges  = outputEdges();
     inEdges   = inputEdges();
     auxlEdges = auxEdges();
-
+    //可能是多路输入
     for (EdgeSequenceIterator iei = inEdges.begin(); iei != inEdges.end(); ++iei)
     {
         if ((*iei)->tensorSurfaceDesc() == tsd)
@@ -563,7 +563,7 @@ memory::TensorBufferDesc* engine_ast::Node::suggestBuffer(surface::TensorSurface
             break;
         }
     }
-    isDstTSD = outputEdges()[0]->tensorSurfaceDesc() == tsd;
+    isDstTSD = outputEdges()[0]->tensorSurfaceDesc() == tsd;//输出即使是多路也应该是同一个tensor，如split，但是slice呢？
     for (EdgeSequence::const_iterator iei = auxEdges().begin(); iei != auxEdges().end(); ++iei)
     {
         if ((*iei)->tensorSurfaceDesc() == tsd)
@@ -586,7 +586,7 @@ memory::TensorBufferDesc* engine_ast::Node::suggestBuffer(surface::TensorSurface
     tbd = tsd->tensorBufferDesc();
     if ( !tbd )
     {
-        tbd = graph()->resourceMgr()->regTensorBufferDesc(numBatches);
+        tbd = graph()->resourceMgr()->regTensorBufferDesc(numBatches);//初始化创建tbd
     }
 
 fail:

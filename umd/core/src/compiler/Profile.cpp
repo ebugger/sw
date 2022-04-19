@@ -288,7 +288,7 @@ void Profile::setDefaultProfile()
 void Profile::setPerformanceProfile()
 {
     setDefaultProfile();
-//    setUseCVSRAMAllocate(true);
+    setUseCVSRAMAllocate(true);
 }
 
 void Profile::setFastMathProfile()

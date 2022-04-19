@@ -218,7 +218,7 @@ static NvDlaError updateProfileWithCmdLineArgs
     PROPAGATE_ERROR_FAIL(profile->setNetworkInputDataFormat(inDataFormat));
 
     // determine input surface format
-    switch(inDataFormat)
+    switch(inDataFormat)//网络输入格式
     {
         case nvdla::DataFormat::NHWC:
 
@@ -243,13 +243,13 @@ static NvDlaError updateProfileWithCmdLineArgs
             if (std::strcmp(appArgs->configtarget.c_str(), "opendla-small") == 0)
                 PROPAGATE_ERROR_FAIL(profile->setNetworkInputSurfaceFormat(nvdla::PixelFormat::FEATURE_X8));
             else
-                PROPAGATE_ERROR_FAIL(profile->setNetworkInputSurfaceFormat(nvdla::PixelFormat::FEATURE));
+                PROPAGATE_ERROR_FAIL(profile->setNetworkInputSurfaceFormat(nvdla::PixelFormat::FEATURE)); //feature方式输入
     }
 
     // determine int8 cfgs
     if (appArgs->computePrecision == nvdla::DataType::INT8)
     {
-        PROPAGATE_ERROR_FAIL(profile->setTensorScalingMode(nvdla::TensorScalingMode::PER_TENSOR));
+        PROPAGATE_ERROR_FAIL(profile->setTensorScalingMode(nvdla::TensorScalingMode::PER_TENSOR));//全局量化参数
         switch(appArgs->quantizationMode)
         {
             case nvdla::QuantizationMode::PER_FILTER:
@@ -258,7 +258,7 @@ static NvDlaError updateProfileWithCmdLineArgs
             case nvdla::QuantizationMode::PER_KERNEL:
             case nvdla::QuantizationMode::NONE: // default to per-kernel; find a way to run int8 tests w/ NONE qtzMode cleanly
             default:
-                PROPAGATE_ERROR_FAIL(profile->setQuantizationMode(nvdla::QuantizationMode::PER_KERNEL));
+                PROPAGATE_ERROR_FAIL(profile->setQuantizationMode(nvdla::QuantizationMode::PER_KERNEL)); //默认量化采用per-kernel
         }
     }
     else
