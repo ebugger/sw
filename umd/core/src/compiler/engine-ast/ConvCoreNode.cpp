@@ -1469,7 +1469,7 @@ NvDlaError engine_ast::ConvCoreNode::fuseOnTheFlyNodes()
             if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
             {
                 dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, *cni);
-                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tFuse "<<this->name()<< " with "<<(*cni)->name()<<std::endl;
+                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tFuse OnTheFly "<<this->name()<< " with "<<(*cni)->name()<<std::endl;
             }
         }
     }
@@ -1592,7 +1592,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         } while (!isMinInPHSatisfied);
     }
     else
-    {
+    {   //按照能用的buffer决定切分的高度，只能切分三次，每次的切分高度都相同？
         srcHeights[FIRST_PARTIAL_H_SEG]        = (NvU32)floor(avlbCBuffEntries[FIRST_PARTIAL_H_SEG] / entriesPerSlice);
         srcHeights[INTERMEDIATE_PARTIAL_H_SEG] = (NvU32)floor(avlbCBuffEntries[INTERMEDIATE_PARTIAL_H_SEG] / entriesPerSlice);
         srcHeights[LAST_PARTIAL_H_SEG]         = (NvU32)floor(avlbCBuffEntries[LAST_PARTIAL_H_SEG] / entriesPerSlice);  // not used anywhere
@@ -1608,7 +1608,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
     }
     else
     {
-        dilatedWeightH = (weightDims.h - 1)*params().dilation().h + 1;
+        dilatedWeightH = (weightDims.h - 1)*params().dilation().h + 1; //kernel的间隙里面插入dilation个0后拓展的kerne大小(k-1)(d-1)+k
         dilatedWeightW = (weightDims.w - 1)*params().dilation().w + 1;
     }
 
@@ -1698,9 +1698,9 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         firstPH.rightPadding     = params().bottomRightPadding().w;
         splitChunks.push_back(firstPH);
         //opSlider = isWinograd ? dilatedWeightH - params().topLeftPadding().h - 1 : dilatedWeightH - 1;
-        opSlider = dilatedWeightH - params().topLeftPadding().h - 1;
+        opSlider = dilatedWeightH - params().topLeftPadding().h - 1;//拓展的kernel的下界在初始扫描时在原始输入中的位置,0位置开始
 
-        if ((dilatedWeightH - 1) > splitChunks.back().bottomSliceID)
+        if ((dilatedWeightH - 1) > splitChunks.back().bottomSliceID)//检查切分大小和krn大小
         {
             ORIGINATE_ERROR_FAIL(NvDlaError_NotSupported, "Kernel height greater than single split possible");
         }
@@ -1709,7 +1709,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         {
             while (opSlider <= (NvU32)splitChunks.back().bottomSliceID)
             {
-                opSlider += params().stride().h;
+                opSlider += params().stride().h;//拓展的kernel一步一步滑窗
             }
             // if opSlider overshoots bottomSliceID, roll it back to second-last valid op in lastPH chunk
             if (opSlider > (NvU32)splitChunks.back().bottomSliceID)
@@ -1718,7 +1718,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
             }
 
             ConvCoreNode::SplitDataInfo newPH;
-            newPH.topSliceID       = min(opSlider, (NvU32)splitChunks.back().bottomSliceID) - (dilatedWeightH - 1) + params().stride().h;
+            newPH.topSliceID       = min(opSlider, (NvU32)splitChunks.back().bottomSliceID) - (dilatedWeightH - 1) + params().stride().h;//新group要进行第一次扫的时候的上界
             newPH.bottomSliceID    = newPH.topSliceID + srcHeights[INTERMEDIATE_PARTIAL_H_SEG] - 1;
             newPH.topPadding       = 0;
             newPH.leftPadding      = params().topLeftPadding().w;
@@ -1735,7 +1735,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
                 break;
             }
 
-            opSlider = newPH.topSliceID + dilatedWeightH - 1;
+            opSlider = newPH.topSliceID + dilatedWeightH - 1; //上届加kernel就变成新的下届
             newPH.bottomPadding = 0;
             splitChunks.push_back(newPH);
         }
@@ -1752,7 +1752,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
     for (std::vector<ConvCoreNode::SplitDataInfo>::iterator itr = splitChunks.begin() + 1, pastItr = itr -1;
             itr != splitChunks.end(); ++itr, ++pastItr)
     {
-        if ((*pastItr).bottomSliceID >= (*itr).topSliceID)
+        if ((*pastItr).bottomSliceID >= (*itr).topSliceID)//如果前一个grp的下届超过了当前grp的上届，也就是交织了。
         {
             (*itr).numOverlapSlices = (*pastItr).bottomSliceID - (*itr).topSliceID + 1;
             (*pastItr).numRetainSlices = (*itr).numOverlapSlices;
@@ -1764,7 +1764,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         }
     }
 
-
+    int32_t chk_idx = 0;
     for (std::vector<ConvCoreNode::SplitDataInfo>::iterator itr = splitChunks.begin();
             itr != splitChunks.end(); ++itr)
     {
@@ -1782,8 +1782,8 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         while(convSlider <= (NvU32)((*itr).bottomSliceID + (*itr).bottomPadding))
         {
             convSlider += params().stride().h;
-            convCounter++;
-        }
+            convCounter++; //滑窗次数
+        }  //注意不用向上回溯，因为retain了overlap的区域， 所以滑窗有可能多一次包含了下一个group的区域。
         (*itr).numConvs = convCounter;
         if ((*itr).bottomSliceID > srcDims.h - 1)
         {
@@ -1815,7 +1815,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         outputHeightProcessed += (*itr).outDims.h;
 
         (*itr).wtBanks = wtBanksReserved;
-        (*itr).dataBanks = avlbDataBanks;
+        (*itr).dataBanks = avlbDataBanks;gLogInfo<<"\tSlice_H chunk#"<<chk_idx++<<":{"<<(*itr).topSliceID<<"~"<<(*itr).bottomSliceID<<std::endl;
     }
 
     PROPAGATE_ERROR_FAIL(verifyPartialHInfo(splitChunks, isWinograd));
@@ -1887,7 +1887,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
 
     origInputEdge   = origConvNode->inputEdges()[0];
     origConvAuxEdge = origConvNode->auxEdges()[0];
-    origStreamEdge  = origConvNode->outputEdges()[0];
+    origStreamEdge  = origConvNode->outputEdges()[0];//tobe streamed?
     origOutputEdge  = origFusedSDPNode->outputEdges()[0];
     weightTSD       = origConvAuxEdge->tensorSurfaceDesc();
     origConvComputeOutEdge = graph()->downstreamComputeEdges(this).size() ?
@@ -2247,7 +2247,7 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
         goto fail;
     }
 
-    //HW-powered: FI + ping-pong Wts
+    //HW-powered: FI + ping-pong Wts 两倍的weights空间，维持一个kernel group的正常运行， 预读取另一个kernel group
     if ((2*minWtBanksNeeded) + totalDataBanksNeeded + compWtReservedBank <= totalCbuffBanks)
     {
         if ( debugSplits() )
@@ -2258,7 +2258,7 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
         params().setAllottedWeightBanks(2*minWtBanksNeeded);
         goto fail;
     }
-    //HW-powered: FI + 1KG wts
+    //HW-powered: FI + 1KG wts  只能一个krn group运行然后等待载入下一个krn group.....
     else if (minWtBanksNeeded + totalDataBanksNeeded + compWtReservedBank <= totalCbuffBanks)
     {
         if ( debugSplits() )
@@ -2569,16 +2569,16 @@ NvS16 engine_ast::ConvCoreNode::calculateEPS(surface::TensorSurfaceDesc* tsd)
     NvDlaError e = NvDlaSuccess;
     NVDLA_UNUSED(e);
     NvS16 eps = -1;
-    NvU8  bpe = tsd->surfaceFormat().bytesPerElement();
-    NvS8  cpa = tsd->surfaceFormat().channelsPerAtom();
+    NvU8  bpe = tsd->surfaceFormat().bytesPerElement();//元素大小
+    NvS8  cpa = tsd->surfaceFormat().channelsPerAtom();//channels/atom [channels/pixel for image; -1 for FD/wt/etc]
     Dims4 input_dims = tsd->dimensions();
     NvU32 width      = input_dims.w;
     NvU32 width_ext  = params().topLeftPadding().w + params().bottomRightPadding().w + input_dims.w;
     NvU32 chnl_ext   = 0;
     NvU16 stride_x = params().stride().w;
     NvU16 stride_y = params().stride().h;
-    NvF32 memory_atomic_size = graph()->target_config()->memoryAtomicSize();
-    NvF32 buf_bank_width     = graph()->target_config()->bufEntryWidth();
+    NvF32 memory_atomic_size = graph()->target_config()->memoryAtomicSize();//KBs each bank?
+    NvF32 buf_bank_width     = graph()->target_config()->bufEntryWidth(); //2*512bit of 256 entries in each bank, = 128B
 
     surface::SurfaceCategory sc = tsd->surfaceFormat().category();
 
@@ -2598,10 +2598,10 @@ NvS16 engine_ast::ConvCoreNode::calculateEPS(surface::TensorSurfaceDesc* tsd)
             switch(params().convMode().v())
             {
                 case ConvolutionModeEnum::CONV_DIRECT: {
-                    NvU16 total_c_atomics = (NvU16)ceil(input_dims.c * bpe / (NvF32)(memory_atomic_size));
-                    NvU16 last_c_atomics  = total_c_atomics % (NvU16)(buf_bank_width / memory_atomic_size) ;
-                    NvU16 int_c_entries   = (total_c_atomics / (NvU16)(buf_bank_width / memory_atomic_size)) * width;
-                    NvU16 frac_c_entries  = (last_c_atomics == 3) ? width: (NvU16)ceil(last_c_atomics * width / ((NvF32)(buf_bank_width / memory_atomic_size)));
+                    NvU16 total_c_atomics = (NvU16)ceil(input_dims.c * bpe / (NvF32)(memory_atomic_size)); //需要多少个chn groups?
+                    NvU16 last_c_atomics  = total_c_atomics  % (NvU16)(buf_bank_width / memory_atomic_size) ;//最后一个chn group在一个entry的的位置[0~3]， 一个entry128B,所以能容纳4个chn group
+                    NvU16 int_c_entries   = (total_c_atomics / (NvU16)(buf_bank_width / memory_atomic_size)) * width;//每个c方向需要的饱和的chn group花费的entries数乘上w的数量就是一行需要的entries的数量
+                    NvU16 frac_c_entries  = (last_c_atomics == 3) ? width: (NvU16)ceil(last_c_atomics * width / ((NvF32)(buf_bank_width / memory_atomic_size))); 
                     eps = int_c_entries + frac_c_entries;
                 }; break;
                 case ConvolutionModeEnum::CONV_WINOGRAD: {
@@ -2628,7 +2628,7 @@ NvU16 engine_ast::ConvCoreNode::calculateTotalBanksForData(surface::TensorSurfac
 {
     NvDlaError e = NvDlaSuccess;
     NVDLA_UNUSED(e);
-    NvU16 b4d = 0;
+    NvU16 b4d = 0;//banks needed
     Dims4 input_dims = tsd->dimensions();
     NvU32 height_ext = 0;
     NvU32 buf_entry_per_bank = graph()->target_config()->bufEntriesPerBank();

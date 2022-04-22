@@ -104,10 +104,10 @@ void TargetConfig::setName(const char* n)
     {
         m_targetConfigParams.m_atomicCSize = 64;
         m_targetConfigParams.m_atomicKSize = 32;
-        m_targetConfigParams.m_memoryAtomicSize = 32;
-        m_targetConfigParams.m_numConvBufBankAllotted = 16;
-        m_targetConfigParams.m_numConvBufEntriesPerBank = 256;
-        m_targetConfigParams.m_numConvBufEntryWidth = 128;
+        m_targetConfigParams.m_memoryAtomicSize = 32;  //KBytes in each Bank
+        m_targetConfigParams.m_numConvBufBankAllotted = 16; //Bank#
+        m_targetConfigParams.m_numConvBufEntriesPerBank = 256;//entries for each bank
+        m_targetConfigParams.m_numConvBufEntryWidth = 128; //2 * 512bit in each entries 
         m_targetConfigParams.m_maxBatchSize = 32;
         m_targetConfigParams.m_isPDPCapable = true;
         m_targetConfigParams.m_isCDPCapable = true;

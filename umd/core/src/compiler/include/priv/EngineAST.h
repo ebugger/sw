@@ -496,7 +496,7 @@ protected:
     SDPALUType m_alu_type;
     SDPOpType  m_op_type;
     SDPActType m_act_type;
-    NvU8       m_truncate;
+    NvU8       m_truncate; //bias和卷积融合后的缩放系数中的移位， 不包含放大
     NvU8       m_shift_value;
     NvS16      m_alu_operand;
     NvS16      m_mul_operand;
@@ -972,7 +972,7 @@ public:
     inline bool debugOps() const { return true; }
     inline bool debugGroupOps() const { return true; }
     inline bool debugMathOptz() const { return true; }
-    inline bool debugWeights() const { return false; }
+    inline bool debugWeights() const { return true; }
     inline bool debugQuantization() const { return true; }
     inline bool debugFuseSubEngineOps() const { return true; }
     inline bool debugSurfaces() const { return true; }
@@ -1371,9 +1371,9 @@ public:
     NvS16 taskId() const { return m_taskId; }
 
     inline bool debugWinograd() const { return false; }
-    inline bool debugSplits() const { return false; }
-    inline bool debugFusion() const { return false; }
-    inline bool debugResolveDependencies() const { return false; }
+    inline bool debugSplits() const { return true; }
+    inline bool debugFusion() const { return true; }
+    inline bool debugResolveDependencies() const { return true; }
 
     virtual NvDlaError emitOp(Graph *, DLAInterface *, NvU32 op_slot, NvU32 batch_id,
                            DLACommonOpDescAccessor,
@@ -1502,7 +1502,7 @@ public:
     NodeSequence topNodes();
     NodeSequence bottomNodes();
 
-    inline bool debugNestedGraph() { return false; }
+    inline bool debugNestedGraph() { return true; }
 
 protected:
     ScoredDependencyOrdering *m_ng_scored_ordering;
@@ -1780,7 +1780,7 @@ public:
     {
         m_engine_type = SPLIT;
         m_engine_op_type = SPLIT_SOFTWARE;
-        m_can_split_node = split;
+        m_can_split_node = split; //注意是can
         m_mb_op_params   = new MultiBatchState < OpParams >(numBatches);
         m_sup_in_surf_formats.assign(IMG_FORMATS, IMG_FORMATS + (sizeof(IMG_FORMATS)/sizeof(IMG_FORMATS[0])));
         m_sup_in_surf_formats.push_back(surface::SurfaceFormatEnum::NVDLA_FEATURE_DATA_INT8);
@@ -2182,7 +2182,7 @@ public:
 protected:
     MultiBatchState < SDPEngineParams > *m_mb_engine_params;
     bool m_isUnitScale;
-    Weights m_rescaleData;
+    Weights m_rescaleData; //融合的部分反量化系数(乘法用的)，不包含移位
 };
 
 // activation op in SDP engine

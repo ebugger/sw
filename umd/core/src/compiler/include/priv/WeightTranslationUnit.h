@@ -631,7 +631,7 @@ class WeightTrns
                         engine_ast::MemoryCollector::getInstance()->freeMemory(pCombinedBlob);
                         goto fail;
                     }
-                    pCombinedBlob[cc] = combinedVal;
+                    pCombinedBlob[cc] = combinedVal; gLogInfo<<"combine bias and mean of BN successful"<<std::endl;
                 }
             }
             else
@@ -723,7 +723,7 @@ class WeightTrns
         //!<      - fp16 -> fp16 translation
         //!<      - fp32 -> fp32 translation (will deprecate soon)
         //!<      - fp32 -> fp16 translation
-        template <typename IT, typename RT>
+        template <typename IT, typename RT> //src, compute prscision
         static Weights translateWtsForDC
         (
             WeightDims                 wDims,               //!<  dims of orig caffe wt blob
@@ -2057,6 +2057,29 @@ class WeightTrns
         }
 
         //!<  prepare weight translation sub-ops for direct convolution
+        /**
+         * @brief 1.首先按照kernel的数量分组，比如每组32个，可能会有一个不饱和的组容纳剩余的kernel
+         *        2.然后按照channel的数量分组，比如每组64个，可能会有一个不饱和的组容纳剩余的channel
+         *        3.在每个饱和的krn组里面：
+         *             3.1 在每个饱和的chn组里面
+         *                  3.1.1 h方向扫
+         *                  3.1.2 w方向扫
+         *             3.2 在唯一一个不饱和的chn组里面
+         *                  3.2.1 h方向扫剩余的chn
+         *                  3.2.2 w方向扫剩余的chn
+         *        4.在唯一一个不饱和的krn组里面，
+         *             3.1 在每个饱和的chn组里面扫剩余的krn的
+         *                  3.1.1 h方向扫
+         *                  3.1.2 w方向扫
+         *             3.2 在唯一一个不饱和的chn组里面扫剩余的krn的
+         *                  3.2.1 h方向扫剩余的chn
+         *                  3.2.2 w方向扫剩余的chn
+         * @tparam RT 
+         * @param wDims 
+         * @param vWtOps 
+         * @param atomicKSize 
+         * @param atomicCSize 
+         */
         template <typename RT>
         static void prepWtTrnsOpsForDC
         (
@@ -2069,7 +2092,7 @@ class WeightTrns
             int r   = wDims.height;
             int s   = wDims.width;
             int cf  = atomicCSize;
-            int cp  = wDims.numChannels % atomicCSize;
+            int cp  = wDims.numChannels % atomicCSize;//剩下的chn放在一个group
             int cfg = wDims.numChannels / atomicCSize;
             int cpg = 1;    //!<  Partial channel group will always be 1 in number if any
             int kf  = (sizeof(RT) == 1 ? atomicKSize : (atomicKSize / 2));
@@ -2079,23 +2102,23 @@ class WeightTrns
 
             bool isFullChnlGroupsPoss = cfg > 0 ? true : false;
             bool isFullKrnlGroupsPoss = kfg > 0 ? true : false;
-            bool isPartChnlGroupsPoss = cp > 0 ? true : false;
-            bool isPartKrnlGroupsPoss = kp > 0 ? true : false;
+            bool isPartChnlGroupsPoss = cp > 0 ? true : false; //有剩余单独的chn？
+            bool isPartKrnlGroupsPoss = kp > 0 ? true : false; //有剩余单独kernel？
 
             //!<  Prepare atomic ops for full kernel groups
             if (isFullKrnlGroupsPoss)
             {
-                for (int ind_kfg = 0; ind_kfg < kfg; ++ind_kfg)
+                for (int ind_kfg = 0; ind_kfg < kfg; ++ind_kfg)  //多少个krn group
                 {
-                    if (isFullChnlGroupsPoss)
+                    if (isFullChnlGroupsPoss)//每个full group处理的数据               
                     {
                         vWtOps.push_back(
-                                AtomicWtOp(Oplimits(ind_kfg, 1),
-                                           Oplimits(0, cfg),
-                                           Oplimits(0, r),
-                                           Oplimits(0, s),
-                                           Oplimits(0, kf),
-                                           Oplimits(0, cf)));
+                                AtomicWtOp(Oplimits(ind_kfg, 1), //krn group ID
+                                           Oplimits(0, cfg),//多少个chn group
+                                           Oplimits(0, r), //h方向
+                                           Oplimits(0, s), //w方向
+                                           Oplimits(0, kf), //多少个krn 
+                                           Oplimits(0, cf))); //多少个chn
                     }
                     if (isPartChnlGroupsPoss)
                     {
@@ -2105,7 +2128,7 @@ class WeightTrns
                                            Oplimits(0, r),
                                            Oplimits(0, s),
                                            Oplimits(0, kf),
-                                           Oplimits(cfg*atomicCSize, cp)));
+                                           Oplimits(cfg*atomicCSize, cp)));//除去full chn group后的剩余的chn数量
                     }
                 }
             }
@@ -2176,27 +2199,27 @@ class WeightTrns
                     ROUNDUP_AND_ALIGN(wDims.wtSize * sizeof(RT), cbufWidth)));
             memset(pDCDestWts, 0, ROUNDUP_AND_ALIGN(wDims.wtSize * sizeof(RT), cbufWidth));
             RT* pDCDestWtsCopy = pDCDestWts;
-
+            //5层循环从下网上看， 对应atomic,strip, group,chn
             for ( ; iterWtOp != vWtOps.end(); ++iterWtOp)
             {
-                for (ind_cg = iterWtOp->cg.startIndex;
+                for (ind_cg = iterWtOp->cg.startIndex;   //原始的chn需要拆成多少个包含64个chn的chn groups
                      ind_cg < iterWtOp->cg.limit;
                      ++ind_cg)
                 {
-                    for (ind_r = iterWtOp->r.startIndex;
+                    for (ind_r = iterWtOp->r.startIndex; //heights方向
                          ind_r < iterWtOp->r.limit;
                          ++ind_r)
                     {
-                        for (ind_s = iterWtOp->s.startIndex;
+                        for (ind_s = iterWtOp->s.startIndex;  //w方向
                              ind_s < iterWtOp->s.limit;
                              ++ind_s)
                         {
-                            for (ind_k = iterWtOp->kg.startIndex*krnlPerGrp;
+                            for (ind_k = iterWtOp->kg.startIndex*krnlPerGrp;  //当前krn group中的krn
                                  ind_k < iterWtOp->kg.startIndex*krnlPerGrp +
                                          iterWtOp->k.limit;
                                  ++ind_k)
                             {
-                                for (ind_c = ind_cg*atomicCSize +
+                                for (ind_c = ind_cg*atomicCSize +    //当前cnh group中的c
                                              iterWtOp->c.startIndex;
                                      ind_c < (ind_cg*atomicCSize +
                                               iterWtOp->c.startIndex +
@@ -2879,7 +2902,7 @@ class WeightTrns
                                               iterWtOp->c.limit);
                                      ++ind_c)
                                 {
-                                    int orig_c = ind_c % srcWDims.numChannels;
+                                    int orig_c = ind_c % srcWDims.numChannels; //当前chn grpup中的chn对于应的原始的chn
                                     int orig_r = (ind_r * srcWDims.strideY) +
                                                  ((ind_c / srcWDims.numChannels) /
                                                  srcWDims.strideY);

@@ -511,7 +511,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compulation phase: preProcessAuxData");
     }
-    gLogInfo<<"PASS: Adjacent activation ops with same precision(bias/scale/bias+scale->bn)" << std::endl;
+    gLogInfo<<"PASS: Fuse ops(Conv+BN/unit scale/bias+scale->bn)" << std::endl;
     g.push_back( mergeActivationOperations(g.back()) );
     if ( !g.back() )
     {
@@ -523,19 +523,19 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: updateScalingFactors");
     }
-    gLogInfo<<"PASS: Quantize all Aux Data.." << std::endl;
+    gLogInfo<<"PASS: Quantize all Aux Data(including fuse conv+bias(first phrase), etc...)" << std::endl;
     g.push_back( quantizeAuxData(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: quantizeAuxData");
     }
-
+    gLogInfo<<"PASS: Fuse conv_engine(as there's no mem write port) with SPD engine, adjcent spd ops included" << std::endl;
     g.push_back( fuseOnTheFlyNodes(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseOnTheFlyNodes");
     }
-
+    gLogInfo<<"PASS: Quantize including fuse conv+bias(second phrase), etc...)" << std::endl;
     g.push_back( handleLowPrecisionConversions(g.back()) );
     if ( !g.back() )
     {
@@ -554,12 +554,12 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: reserveBuffers");
     }
 
-    ///*
-    g.push_back( groupAtomicOperations(g.back()) );
-    if ( !g.back() )
-    {
-        PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: groupAtomicOperations");
-    }
+    // gLogInfo<<"PASS: group none-intercepted ops as supernode/nestedGraph(conv+spd).." << std::endl;
+    // g.push_back( groupAtomicOperations(g.back()) );
+    // if ( !g.back() )
+    // {
+    //     PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: groupAtomicOperations");
+    // }
     //*/
 
     g.push_back( splitNodes(g.back()) );

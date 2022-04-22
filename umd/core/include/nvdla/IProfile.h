@@ -128,7 +128,7 @@ public:
             canWinograd(false),
             convWeightBanksAllotted(8),
             convDataBanksAllotted(8),
-            canSdpPdpOnFly(false),
+            canSdpPdpOnFly(true),
             canSdpMergeMathOps(false),
             canSdpFuseSubEngineOps(false),
             canSdpBustNOPs(false),

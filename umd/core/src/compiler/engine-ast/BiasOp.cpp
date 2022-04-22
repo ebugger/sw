@@ -589,7 +589,7 @@ NvDlaError engine_ast::SDPBiasOpNode::scaleBiasToInt16
     NvU32 biasShift;
     std::vector< NvS32 > rescaledBias32;
 
-    NvF32 perTensorInTensorScl = inTensorScales.at(0);
+    NvF32 perTensorInTensorScl = inTensorScales.at(0); //全部相同， 一个tensor整体缩放后作为下一层的输入
 
     bool isPerKernelQtz  = graph()->profile()->quantizationMode() == nvdla::QuantizationMode::PER_KERNEL;
 
@@ -598,13 +598,13 @@ NvDlaError engine_ast::SDPBiasOpNode::scaleBiasToInt16
     Weights origBiasBlob = params().rawBiasData();
     Weights int16BiasBlob;
     NvS16* pInt16Bias = (NvS16*)std::malloc(origBiasBlob.count * sizeof(NvS16));
-    NvU32 numBiasData = origBiasBlob.count;
+    NvU32 numBiasData = origBiasBlob.count;//bias的数量
 
     if (fusedConv)
     {
         NvU32 numFilters = filterScales.size();
         ASSERT ( filterScales.size() == (size_t)fusedConv->outputEdges().at(0)->tensorSurfaceDesc()->dimensions().c );
-        for (NvU32 ff = 0; ff < numFilters; ++ff)
+        for (NvU32 ff = 0; ff < numFilters; ++ff) //
         {
             if ( isPerKernelQtz && (filterScales[0] != filterScales[ff]) )
             {
@@ -644,7 +644,7 @@ NvDlaError engine_ast::SDPBiasOpNode::scaleBiasToInt16
                 NvF32 biasRescaleFactor = perTensorInTensorScl;
                 if ( fusedConv )
                 {
-                    biasRescaleFactor = perTensorInTensorScl * filterScales[bb];
+                    biasRescaleFactor = perTensorInTensorScl * filterScales[bb]; //fp32(b[k]/Si*Sw[k])
                 }
                 scaledFP32Bias = NvF32(fp32Bias / biasRescaleFactor);
                 NvS32 int32Bias = static_cast<NvS32>(std::floor(scaledFP32Bias + 0.5f));
@@ -668,21 +668,21 @@ NvDlaError engine_ast::SDPBiasOpNode::scaleBiasToInt16
     }
 
     maxBias = *std::max_element(rescaledBias32.begin(), rescaledBias32.end(), absCompare);
-    numBits = ceil(log(abs(maxBias))/log(2)) + 1;
-    biasShift = std::min(SDP_LEFT_SHIFT_MAX_PLACES, std::max(0, numBits - 16));
+    numBits = ceil(log(abs(maxBias))/log(2)) + 1; //最小表示位数+一个符号位
+    biasShift = std::min(SDP_LEFT_SHIFT_MAX_PLACES, std::max(0, numBits - 16));//也就要表示的数超出了硬件能表示的位宽，那么就舍掉低位先缩到16bit范围
 
     params().x1Params().setShiftValue(biasShift);
 
     for ( NvU32 bb = 0; bb < numBiasData; ++bb)
     {
-	    int16Bias = static_cast<NvS16>(rescaledBias32[bb] >> biasShift);
+	    int16Bias = static_cast<NvS16>(rescaledBias32[bb] >> biasShift);//舍掉低位先缩到16bit范围
         pInt16Bias[bb] = int16Bias;
 
         if ( graph()->debugQuantization() )
         {
             if (fusedConv)
             {
-                gLogInfo << "rawBias/Si*Sw "
+                gLogInfo << "rawBias/Si*Sw(Fused with up Conv) "
                          << reinterpret_cast<NvF32*>(const_cast<void*>(origBiasBlob.values))[bb] << " / "
                          << " ( " << perTensorInTensorScl << " * " << filterScales[bb] << " ) = "
                          << (reinterpret_cast<NvF32*>(const_cast<void*>(origBiasBlob.values))[bb]/(perTensorInTensorScl * filterScales[bb]))
@@ -780,7 +780,7 @@ NvDlaError engine_ast::SDPBiasOpNode::quantizeAuxData()
      *      - ls : common left shift for scaling all (just quantified) biases
      *
      * For per-filter scaled bias addition: (int16 path)
-     *      - find per-output channel, scaled bias which represents fp32(b[k]/Si*Sw[k]) as a i16 value
+     *      - find per-output channel, scaled bias which represents fp32(b[k]/Si*Sw[k]) as a i16 value 先转int32然后缩放到i16
      *      - scaled bias represented as : b'[k] in i16
      *      - feed the scaled bias b'[k] to the ALU unit of SDP-X
      */
@@ -917,7 +917,7 @@ fail:
     return e;
 }
 
-NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling
+NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling  //Qo = (Qi * Qw + b[k]/Si*Sw[k]) * [(Si*Sw[k]/So)]<-process the scale factor
 (
     ConvCoreNode* fusedConv,
     std::vector<NvF32>& filterScales,
@@ -937,7 +937,7 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling
 
     Weights rawBiasData = params().rawBiasData();
     NvU32 numBiasData = rawBiasData.count;
-    NvF32 perTensorInTensorScl  = inTensorScales.at(0);
+    NvF32 perTensorInTensorScl  = inTensorScales.at(0); //只支持per_tensor scale
     NvF32 perTensorOutTensorScl = outTensorScales.at(0);
 
     if ( fusedConv )
@@ -946,7 +946,7 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling
         ASSERT ( inTensorScales.size() == (size_t)fusedConv->inputEdges().at(0)->tensorSurfaceDesc()->dimensions().c );
         for (NvF32 its = 1; its < inTensorScales.size(); ++its)
         {
-            if ( perTensorInTensorScl != inTensorScales[its] )
+            if ( perTensorInTensorScl != inTensorScales[its] )//只支持per_tensor scale,所以只有一个值
             {
                 ORIGINATE_ERROR_FAIL(NvDlaError_BadValue, "Channel scales should be same for input of %s when PER_TENSOR "
                                     "scaling is ON", fusedConv->name().c_str());
@@ -978,10 +978,10 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling
 
     for (NvU32 cc = 0; cc < numBiasData; ++cc)
     {
-        NvF32 rescaleData = perTensorInTensorScl / perTensorOutTensorScl;
+        NvF32 rescaleData = perTensorInTensorScl / perTensorOutTensorScl;// (Si*Sw[k]/So)
         if ( fusedConv )
         {
-            rescaleData = rescaleData * filterScales[cc];
+            rescaleData = rescaleData * filterScales[cc];// (Si*Sw[k]/So)
         }
         outputRescales.push_back(rescaleData);
     }
@@ -1030,20 +1030,20 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling
         rescaleWtsBlob.values = pINT16Rescalars;
         setRescaleData(rescaleWtsBlob);
         params().x1Params().setINT8Rescaling(true);
-        params().x1Params().setOpType(SDPOpTypeEnum::SDP_OP_TYPE_BOTH);
+        params().x1Params().setOpType(SDPOpTypeEnum::SDP_OP_TYPE_BOTH); //MUL and ALU(shifter)乘法和移位
     }
 
 
     outCvt.setEnable(1);
     outCvt.setOffset(0);
-    outCvt.setScale(1);
+    outCvt.setScale(1); //rescale/requantize重量化
     outCvt.setTruncate(0);
 
     // fixme: move the m_truncate to sdpengine params
     switch(engineOpType().v())
     {
         case EngineOpTypeEnum::SDP_BIAS:
-            NodeFactory::nodeCast<SDPBiasOpNode*>(this)->params().x1Params().setTruncate(maxRescaleFactorScaleAndShift.second);
+            NodeFactory::nodeCast<SDPBiasOpNode*>(this)->params().x1Params().setTruncate(maxRescaleFactorScaleAndShift.second); //移位
             break;
         default:
             ORIGINATE_ERROR_FAIL(NvDlaError_NotSupported, "Don't yet support per-channel scaling in conjunction with %s\n", name().c_str());
@@ -1127,7 +1127,7 @@ NvDlaError engine_ast::SDPBiasOpNode::handleLowPrecisionConversions()
      *      - represented as `2^(-t) * s[k]`
      *      - where s[k] : per-channel scale represented as i16
      *      - t : common truncate that can safely represent all per-channel rescale factors
-     *      - feed s[k] to the MUL unit of SDP-X and program 't' in the truncate operand
+     *      - feed s[k] to the MUL unit of SDP-X and program 't' in the truncate operand //单独处理乘法器，移位器
      */
     else if ( graph()->profile()->quantizationMode().v() == nvdla::QuantizationMode::PER_FILTER )
     {

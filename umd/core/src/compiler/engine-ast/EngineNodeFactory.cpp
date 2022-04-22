@@ -598,7 +598,7 @@ engine_ast::SplitNode* engine_ast::NodeFactory::newSplitNode
     d->setName(std::string("split-") + toString(s_split_priv.size()));
     d->setId(engGraph->nextNodeId());
     d->setGraph(engGraph);
-    d->captureCanonicalParams();
+    d->captureCanonicalParams();//设置默认的切分方向C
     engGraph->insertNode(b);
 
     s_split_priv.insert(std::pair<B, D>(b, d));

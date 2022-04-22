@@ -241,7 +241,7 @@ public: // internally facing
             m_canSDPMergeMathOps(false),
             m_canSDPFuseSubEngineOps(false),
             m_canSDPBustNOPs(false),
-            m_canSDPFuseVerticalOps(false),
+            m_canSDPFuseVerticalOps(true),
             m_useCVSRAMAllocate(false),
             m_useMemPool(false),
             m_useReusePooledMemory(false),

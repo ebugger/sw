@@ -215,12 +215,12 @@ fail:
  * where b' represent #bits to tranverse from MSB before radix point (in binary)
  *  of S_fp is hit.
  *
- * Since we can only have signed 16 bit scale/numerator, limiting the right shift
+ * Since we can only have signed 16 bit scale/numerator, limiting the right shift 注意移位极限
  * to 15 bits. With a larger divisor, we lose precision and small scales become 0
  * With a smaller divisor, then the largest value overflows. If the numerator/scale
  * overflows NvS16 bynamic range, compilation should fail.
  *
- * todo: for dla2, add constraints on max shift/truncate width
+ * todo: for dla2, add constraints on max shift/truncate width 
  **/
 template <typename SC, typename SH>
 NvDlaError scaleAndShiftFromScalarImpl2
@@ -248,7 +248,7 @@ NvDlaError scaleAndShiftFromScalarImpl2
     }
     else
     {
-        // Find the number of bits required for non-fractional part
+        // Find the number of bits required for non-fractional part 整数部分的bit数，可以是负值，比如非常小的时候
         numBits = floor(log(absScalar)/log(2)) + 1;
 
         // Check if it is within range
@@ -274,7 +274,7 @@ NvDlaError scaleAndShiftFromScalarImpl2
                                 powerOfTwo);
         }
 
-        scale = std::pow(2, powerOfTwo) * absScalar;
+        scale = std::pow(2, powerOfTwo) * absScalar;//定点和浮点的转换
         if (scale == 0)
         {
             // TODO: PROPAGATE_ERROR_FAIL once everything in place
@@ -299,7 +299,7 @@ fail:
 }
 
 
-template <typename SC, typename SH>
+template <typename SC, typename SH>  //scale, shifter
 NvDlaError calculateScaleAndShiftFromScalar
 (
     NvF32 scalar,

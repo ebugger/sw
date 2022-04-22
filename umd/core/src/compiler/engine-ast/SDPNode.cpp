@@ -514,8 +514,8 @@ NvDlaError engine_ast::SDPNode::fuseOnTheFlyNodes()
                 // FIXME: add logic to determine sub-engine requirements and then fuse
                 if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
                 {
-                    dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));gLogInfo<<"\tSPD OP Fuse "<<this->name() << " -> with (downstream) "<<(*cni)->name()<<std::endl;
-                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tSPD OP Fuse with (upstream) "<<this->name() << " <- "<<(*cni)->name()<<std::endl;
+                    dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));gLogInfo<<"\tSPD FuseVerticalOps "<<this->name() << " -> with (downstream) "<<(*cni)->name()<<std::endl;
+                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tSPD FuseVerticalOps with (upstream) "<<this->name() << " <- "<<(*cni)->name()<<std::endl;
                 }
             }
         }

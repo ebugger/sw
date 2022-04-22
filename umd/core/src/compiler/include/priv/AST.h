@@ -864,9 +864,9 @@ protected:
             }else{
             // gLogInfo << "elem i [" << (i->first.first?"node: ":"edge: ") << i->second.toString() << "] < j[" <<
             //      (j->first.first?"node: ":"edge: ") << j->second.toString() << "] = " << i_lt_j << std::endl;
-                gLogInfo << " elem i [" << (i->first.first?"node: ":"edge: ") << 
-                        (i->first.first?i->first.first->name():i->first.second->originalTensor()->getName())<< i->second.toString() << "] < j[" <<
-                        (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():j->first.second->originalTensor()->getName())<< j->second.toString() << "] = " << i_lt_j << std::endl;
+                // 排序gLogInfo << " elem i [" << (i->first.first?"node: ":"edge: ") << 
+                //         (i->first.first?i->first.first->name():i->first.second->originalTensor()->getName())<< i->second.toString() << "] < j[" <<
+                //         (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():j->first.second->originalTensor()->getName())<< j->second.toString() << "] = " << i_lt_j << std::endl;
             }
             return i_lt_j;
         }
@@ -880,7 +880,7 @@ protected:
         bool operator() (NodeScoresIterator i, NodeScoresIterator j)
         {
             bool i_lt_j = i->second < j->second;
-            gLogInfo << "node i "<<i->first->name()<<"[" << i->second.toString() << "] < j[" << j->second.toString() << "]"<<j->first->name() <<" = " << i_lt_j << std::endl;
+            //排序gLogInfo << "node i "<<i->first->name()<<"[" << i->second.toString() << "] < j[" << j->second.toString() << "]"<<j->first->name() <<" = " << i_lt_j << std::endl;
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;
@@ -893,7 +893,7 @@ protected:
         bool operator() (EdgeScoresIterator i, EdgeScoresIterator j)
         {
             bool i_lt_j = i->second < j->second;
-            gLogInfo << "edge i "<<i->first->originalTensor()->getName()<<" [" << i->second.toString() << "] < j[" << j->second.toString() << "]"<<j->first->originalTensor()->getName()<<" = " << i_lt_j << std::endl;
+            // 排序<< "edge i "<<i->first->originalTensor()->getName()<<" [" << i->second.toString() << "] < j[" << j->second.toString() << "]"<<j->first->originalTensor()->getName()<<" = " << i_lt_j << std::endl;
             return i_lt_j;
         }
         GraphScoreboard<G> &m_use_scores;

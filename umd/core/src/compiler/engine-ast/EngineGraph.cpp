@@ -1239,7 +1239,7 @@ NvDlaError engine_ast::Graph::mergeActivationOperations()
             if ( debugMathOptz() )
             {
                 gLogInfo << std::endl;
-                gLogInfo << "Try Merging: " << currNode->name() << " & " << nextSDP->name() << std::endl;
+                gLogInfo << "Try Merging(Conv+SPD): " << currNode->name() << " & " << nextSDP->name() << std::endl;
             }
 
             removeNode = currNode->mergeWithSDPOp(nextSDP);
@@ -1247,9 +1247,9 @@ NvDlaError engine_ast::Graph::mergeActivationOperations()
             if ( debugMathOptz() )
             {
                 if (removeNode)
-                    gLogInfo << "Merging: Sucess" << std::endl;
+                    gLogInfo << "\tMerging: Sucess" << std::endl;
                 else
-                    gLogInfo << "Merging: Not Feasible" << std::endl;
+                    gLogInfo << "\tMerging: Not Feasible(Conv+bias)" << std::endl;
             }
 
             if (removeNode)
