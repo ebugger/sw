@@ -373,10 +373,10 @@ NvDlaError engine_ast::Edge::determineSurfaceStrides()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+    gLogInfo<<"Processing Edge Line/SF stride: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
                                     <<originalTensor()->getName()<<"/"
                                     <<originalTensor()->tt_cstr()<<"/"
-                                    <<tsd->surfaceFormat().category().c_str()<<" Line/SF stride, among its all "
+                                    <<tsd->surfaceFormat().category().c_str()<<", among its all "
                                     <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
@@ -421,10 +421,10 @@ NvDlaError engine_ast::Edge::determineSurfaceSize()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+    gLogInfo<<"Processing Edge SF Size: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
                                     <<originalTensor()->getName()<<"/"
                                     <<originalTensor()->tt_cstr()<<"/"
-                                    <<tsd->surfaceFormat().category().c_str()<<" SF Size, among its all "
+                                    <<tsd->surfaceFormat().category().c_str()<<", among its all "
                                     <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
@@ -462,10 +462,10 @@ NvDlaError engine_ast::Edge::determineSurfaceOffsetInBuffer()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+    gLogInfo<<"Processing Edge surface Offset: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
                                     <<originalTensor()->getName()<<"/"
                                     <<originalTensor()->tt_cstr()<<"/"
-                                    <<tsd->surfaceFormat().category().c_str()<<" SF Offset, among its all "
+                                    <<tsd->surfaceFormat().category().c_str()<<", among its all "
                                     <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
@@ -857,10 +857,10 @@ NvDlaError engine_ast::Edge::registerBuffer()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-    gLogInfo<<"Processing Edge: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+    gLogInfo<<"Processing Edge TBD: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
                                     <<originalTensor()->getName()<<"/"
                                     <<originalTensor()->tt_cstr()<<"/"
-                                    <<tsd->surfaceFormat().category().c_str()<<" TBD, among its all "
+                                    <<tsd->surfaceFormat().category().c_str()<<", among its all "
                                     <<clients.size()<<" consumer&producer node "<<std::endl;
     commonTBD = tsd->tensorBufferDesc();
     if ( !commonTBD )

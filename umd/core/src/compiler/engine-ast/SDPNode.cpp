@@ -744,7 +744,7 @@ bool engine_ast::SDPNode::isFeasibleToFuseSDPEltwiseOp(SDPNode* nextSDP)
 
     allNodes = graph()->orderedNodes();
     startNodeIter = std::find(allNodes.begin(), allNodes.end(), this);
-    for (NodeSequenceIterator ni = startNodeIter; ni != allNodes.end(); ++ni) {
+    for (NodeSequenceIterator ni = startNodeIter; ni != allNodes.end(); ++ni) { //这个就是从elt的src1开始找打破src2，最后找到elt，所以eltNodeDistance是2
         if (*ni == this || *ni == peerSource)
         {
             eltNodeDistance++;
@@ -778,12 +778,12 @@ bool engine_ast::SDPNode::isFeasibleToFuseSDPEltwiseOp(SDPNode* nextSDP)
     }
 
     /*
-    current node depends on peer -> fuse elt in current node
+    current node depends on peer -> fuse elt in current node 有的分支相互间有依赖关系，所以需要判断
     peer node depends on curent node -> Do not fuse elt in current node
     current and peer nodes are independent of each other, then we have option of fusing it at any node.
     Based on traversal, check which source node visited later i.e. elt node distance.
         - if elt node distance = 1 fuse in current source node
-        - if elt node distance = 2, fuse in peer source.
+        - if elt node distance = 2, fuse in peer source. 
     */
     if ( current2peerDep
         || ((!current2peerDep && !peer2currentDep) && (eltNodeDistance == 1)) )
@@ -816,7 +816,7 @@ engine_ast::Node* engine_ast::SDPNode::fuseSDPSubEngineOp(SDPNode* nextSDP)
     NvDlaError e = NvDlaSuccess;
     Node* removableNode = NULL;
 
-    if (isFeasibleToFuseSDPSubEngineOp(nextSDP))
+    if (isFeasibleToFuseSDPSubEngineOp(nextSDP)) //根据分支的先后顺序和依赖关系决定和合并的现后顺序
     {
         engine_ast::Edge* edgeToMoveX1 = NULL;
         engine_ast::Edge* edgeToMoveX2 = NULL;

@@ -1764,7 +1764,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         }
     }
 
-    int32_t chk_idx = 0;
+    //int32_t chk_idx = 0;
     for (std::vector<ConvCoreNode::SplitDataInfo>::iterator itr = splitChunks.begin();
             itr != splitChunks.end(); ++itr)
     {
@@ -1815,7 +1815,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         outputHeightProcessed += (*itr).outDims.h;
 
         (*itr).wtBanks = wtBanksReserved;
-        (*itr).dataBanks = avlbDataBanks;gLogInfo<<"\tSlice_H chunk#"<<chk_idx++<<":{"<<(*itr).topSliceID<<"~"<<(*itr).bottomSliceID<<std::endl;
+        (*itr).dataBanks = avlbDataBanks;//gLogInfo<<"\tSlice_H chunk#"<<chk_idx++<<":{"<<(*itr).topSliceID<<"~"<<(*itr).bottomSliceID<<std::endl;
     }
 
     PROPAGATE_ERROR_FAIL(verifyPartialHInfo(splitChunks, isWinograd));
@@ -1842,10 +1842,10 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
     Dims4 newSplitDstDims     {0,0,0,0};    // unique dims for each splitOp combo's output
 
 
-    engine_ast::Edge* origInputEdge     = NULL;
-    engine_ast::Edge* origStreamEdge    = NULL;
-    engine_ast::Edge* origOutputEdge    = NULL;
-    engine_ast::Edge* origConvAuxEdge   = NULL;
+    engine_ast::Edge* origInputEdge     = NULL;//原始的conv的输入
+    engine_ast::Edge* origStreamEdge    = NULL;//原始的conv的输出
+    engine_ast::Edge* origOutputEdge    = NULL;//原始的conv+spd的输出
+    engine_ast::Edge* origConvAuxEdge   = NULL;//原始的conv的权重
     engine_ast::Edge* origSDPAuxEdge    = NULL;
     engine_ast::Edge* origConvComputeOutEdge = NULL;    // compute edge going out from existing conv node
     engine_ast::Edge* origSDPComputeOutEdge = NULL;     // compute edge going out from existing fused-sdp node
@@ -1887,12 +1887,12 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
 
     origInputEdge   = origConvNode->inputEdges()[0];
     origConvAuxEdge = origConvNode->auxEdges()[0];
-    origStreamEdge  = origConvNode->outputEdges()[0];//tobe streamed?
+    origStreamEdge  = origConvNode->outputEdges()[0];//原始的tobe streamed?
     origOutputEdge  = origFusedSDPNode->outputEdges()[0];
     weightTSD       = origConvAuxEdge->tensorSurfaceDesc();
-    origConvComputeOutEdge = graph()->downstreamComputeEdges(this).size() ?
+    origConvComputeOutEdge = graph()->downstreamComputeEdges(this).size() ?  //切分前应该是none
                              graph()->downstreamComputeEdges(this)[0] : NULL;
-    origSDPComputeOutEdge  = graph()->downstreamComputeEdges(origFusedSDPNode).size() ?
+    origSDPComputeOutEdge  = graph()->downstreamComputeEdges(origFusedSDPNode).size() ? //切分前应该是none
                              graph()->downstreamComputeEdges(origFusedSDPNode)[0] : NULL;
 
     PROPAGATE_ERROR_FAIL(origFusedSDPNode->nodeAuxEdge(&origSDPAuxEdge));
@@ -1960,26 +1960,26 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
     /* software split and concat nodes which appear in the graph but
      * do not get annotated in the firmware's action list
      */
-    swSplitNode  = engine_ast::NodeFactory::newSplitNode(NULL, graph());
-    swSplitNode->params().setSplitAxis(SplitAxisEnum::SPLIT_ALONG_H);
+    swSplitNode  = engine_ast::NodeFactory::newSplitNode(NULL, graph()); //注意初始的ast的node是不存在的
+    swSplitNode->params().setSplitAxis(SplitAxisEnum::SPLIT_ALONG_H);//更新切分方向
     swConcatNode = engine_ast::NodeFactory::newConcatNode(NULL, graph());
-    swConcatNode->params().setConcatAxis(ConcatAxisEnum::CONCAT_ALONG_H);
+    swConcatNode->params().setConcatAxis(ConcatAxisEnum::CONCAT_ALONG_H);//更新合并方向
 
     /* delegate orig input edge to conv node and reattach to swSplit node and
      * delegate orig output edge from SDP node and reattach to swConcat node
      */
-    graph()->replaceEdgeNodes(origInputEdge, ast::EdgeSideEnum::SECOND, origConvNode, swSplitNode);
-    graph()->replaceEdgeNodes(origOutputEdge, ast::EdgeSideEnum::FIRST, origFusedSDPNode, swConcatNode);
+    graph()->replaceEdgeNodes(origInputEdge, ast::EdgeSideEnum::SECOND, origConvNode, swSplitNode);//把conv的输入edge，和conv相互断开后，和split相互接起来
+    graph()->replaceEdgeNodes(origOutputEdge, ast::EdgeSideEnum::FIRST, origFusedSDPNode, swConcatNode);//把spd的输出edge，和spd相互断开后，和concat相互接起来
 
     splitConvNodes.push_back(origConvNode);
     splitSDPNodes.push_back(origFusedSDPNode);
 
-    origConvNode->params().setTopLeftPadding(Dims2(splitChunks[0].topPadding, splitChunks[0].leftPadding));
-    origConvNode->params().setBottomRightPadding(Dims2(splitChunks[0].bottomPadding, splitChunks[0].rightPadding));
+    origConvNode->params().setTopLeftPadding(Dims2(splitChunks[0].topPadding, splitChunks[0].leftPadding)); //到目前为止， convcore的engine_param的padding没被设置过.
+    origConvNode->params().setBottomRightPadding(Dims2(splitChunks[0].bottomPadding, splitChunks[0].rightPadding));//到目前为止， convcore的engine_param的padding没被设置过.
 
     /********************* Handle 1st split op node ****************************/
     /* Step-1: Handle edges */
-    // Handle split input edge
+    // Handle split input edge  //仅仅是把tensor的属性复制到了新的split的tensor，但是维度更新成分割后的每块的了
     newSplitSrcDims.n = 1;                          //FIXME: conv doesnt support HW multi-batch yet
     newSplitSrcDims.c = splitChunks[0].inDims.c;
     newSplitSrcDims.w = splitChunks[0].inDims.w;
@@ -1988,7 +1988,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
     newSplitSrcTensor->setTensorType(TensorType::kIO);
     newSplitSrcTensor->setDimensions(newSplitSrcDims);
 
-    // Handle split stream edge
+    // Handle split stream edge //split出来的conv node的输出也是stream的tensor，任然采用原来的tensor，只是维度变化， 没有tbd， 只有tsd
     newSplitStreamDims.n = 1;                           //FIXME: conv doesnt support HW multi-batch yet
     newSplitStreamDims.c = splitChunks[0].outDims.c;
     newSplitStreamDims.h = splitChunks[0].outDims.h;
@@ -1996,14 +1996,14 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
     origStreamEdge->originalTensor()->setDimensions(newSplitStreamDims);
     origStreamEdge->tensorSurfaceDesc()->setDimensions(newSplitStreamDims);
 
-    // Handle split output edge
+    // Handle split output edge //仅仅是把tensor的属性复制到了新的split的tensor，但是维度更新成分割后的每块的了
     newSplitDstDims = newSplitStreamDims;
-    newSplitDstTensor = origOutputEdge->originalTensor()->clone();
+    newSplitDstTensor = origOutputEdge->originalTensor()->clone(); //原始的conv+spd的输出
     newSplitDstTensor->setTensorType(TensorType::kIO);
     newSplitDstTensor->setDimensions(newSplitDstDims);
 
-    newSplitSrcDataEdge = graph()->addDataEdge(origInputEdge->canonicalEdge(), swSplitNode, origConvNode, newSplitSrcTensor);
-    newSplitDstDataEdge = graph()->addDataEdge(origOutputEdge->canonicalEdge(), origFusedSDPNode, swConcatNode, newSplitDstTensor);
+    newSplitSrcDataEdge = graph()->addDataEdge(origInputEdge->canonicalEdge(), swSplitNode, origConvNode, newSplitSrcTensor); //把分割后的Convnode的结果tensor连接到分割的ConvNode
+    newSplitDstDataEdge = graph()->addDataEdge(origOutputEdge->canonicalEdge(), origFusedSDPNode, swConcatNode, newSplitDstTensor);//把分割后的连接到concat
 
     if (isWinograd)
     {
@@ -2019,7 +2019,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
 
     origConvNode->params().setAllottedDataBanks(splitChunks[0].dataBanks);
 
-    /*******************************Handle remaining split ops ***************/
+    /*******************************Handle remaining split ops ***************以上是创建了第一个分割的分支流程，此时origConvNode成了第一个分割的conv node，上游的edge和splitnode对接*/
     for (splitItr = splitChunks.begin() + 1; splitItr != splitChunks.end(); ++splitItr)
     {
         /* Step-1: Add new splitOp node */
@@ -2028,14 +2028,14 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
             case EngineOpTypeEnum::CONVOLUTION_CONV: {
                     canonical_ast::ConvolutionNode* origCanNode =
                         canonical_ast::NodeFactory::nodeCast<canonical_ast::ConvolutionNode*>(canonicalNode());
-                    newSplitConvNode = engine_ast::NodeFactory::newConvCoreConvolutionOpNode(origCanNode, graph());
+                    newSplitConvNode = engine_ast::NodeFactory::newConvCoreConvolutionOpNode(origCanNode, graph());//全部从当前的ori Conv复制
                     if (!isWinograd && (newSplitConvNode->params().convMode().v() == ConvolutionModeEnum::CONV_WINOGRAD))
                     {
                         newSplitConvNode->params().setConvMode(ConvolutionModeEnum::CONV_DIRECT);
                         newSplitConvNode->setName("dc-conv-" + newSplitConvNode->name().substr(newSplitConvNode->name().find("wg-conv-") + 8));
                     }
-                    newSplitSDPNode  = newSplitConvNode->addSDPJointOpNode(origFusedSDPNode);
-                    NodeFactory::nodeCast<ConvCoreConvolutionOpNode*>(newSplitConvNode)->inheritParams(origConvNode);
+                    newSplitSDPNode  = newSplitConvNode->addSDPJointOpNode(origFusedSDPNode);//直接复制spd node
+                    NodeFactory::nodeCast<ConvCoreConvolutionOpNode*>(newSplitConvNode)->inheritParams(origConvNode); //origConvNode已经在之前变成分割的子conv了
                 }; break;
             case EngineOpTypeEnum::CONVOLUTION_FC: {
                     canonical_ast::FullyConnectedNode* origCanNode =
@@ -2061,23 +2061,23 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
         /* Trim the extra aux edges attached to the nodes above. All the split conv's
          * are going to share weights and the split sdp's are going to share data (if any)
          */
-        PROPAGATE_ERROR_FAIL(newSplitConvNode->nodeDataEdge(TensorType::kWEIGHT, ast::EdgeSideEnum::SECOND, &newSplitConvRedundantAuxDataEdge));
+        PROPAGATE_ERROR_FAIL(newSplitConvNode->nodeDataEdge(TensorType::kWEIGHT, ast::EdgeSideEnum::SECOND, &newSplitConvRedundantAuxDataEdge));//找到weights的edge
         newSplitConvNode->graph()->removeEdgeFromNode(newSplitConvRedundantAuxDataEdge, ast::EdgeSideEnum::SECOND, newSplitConvNode);
         newSplitConvNode->graph()->removeNodeFromEdge(newSplitConvRedundantAuxDataEdge, ast::EdgeSideEnum::SECOND, newSplitConvNode);
-        newSplitConvNode->graph()->appendNodeToEdge(origConvAuxEdge, ast::EdgeSideEnum::SECOND, newSplitConvNode);
+        newSplitConvNode->graph()->appendNodeToEdge(origConvAuxEdge, ast::EdgeSideEnum::SECOND, newSplitConvNode);//共享权重edge作为node输入
         newSplitConvNode->graph()->removeEdge(newSplitConvRedundantAuxDataEdge);
 
         if (fusedSDPHasAuxData)
         {
-            PROPAGATE_ERROR_FAIL(newSplitSDPNode->nodeAuxEdge(&newSplitSDPRedundantAuxDataEdge));
+            PROPAGATE_ERROR_FAIL(newSplitSDPNode->nodeAuxEdge(&newSplitSDPRedundantAuxDataEdge));//找到aux的edge
             newSplitSDPNode->graph()->removeEdgeFromNode(newSplitSDPRedundantAuxDataEdge, ast::EdgeSideEnum::SECOND, newSplitSDPNode);
             newSplitSDPNode->graph()->removeNodeFromEdge(newSplitSDPRedundantAuxDataEdge, ast::EdgeSideEnum::SECOND, newSplitSDPNode);
-            newSplitSDPNode->graph()->appendNodeToEdge(origSDPAuxEdge, ast::EdgeSideEnum::SECOND, newSplitSDPNode);
+            newSplitSDPNode->graph()->appendNodeToEdge(origSDPAuxEdge, ast::EdgeSideEnum::SECOND, newSplitSDPNode);//共享aux作为node输入
             newSplitSDPNode->graph()->removeEdge(newSplitSDPRedundantAuxDataEdge);
         }
 
 
-        /* Step-1: Handle edges */
+        /* Step-1: Handle edges 更新tenser信息*/
         // Handle split input edge
         newSplitSrcDims.n = 1;                      //FIXME: conv doesnt support HW multi-batch yet
         newSplitSrcDims.c = (*splitItr).inDims.c;
@@ -2089,7 +2089,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
 
 
         // Handle split stream edge
-        PROPAGATE_ERROR_FAIL(newSplitConvNode->nodeDataEdge(TensorType::kSTREAM, ast::EdgeSideEnum::FIRST, &newSplitStreamDataEdge));
+        PROPAGATE_ERROR_FAIL(newSplitConvNode->nodeDataEdge(TensorType::kSTREAM, ast::EdgeSideEnum::FIRST, &newSplitStreamDataEdge));//找出kstream
         newSplitStreamDims.n = 1;                       //FIXME: conv doesnt support HW multi-batch yet
         newSplitStreamDims.c = (*splitItr).outDims.c;
         newSplitStreamDims.h = (*splitItr).outDims.h;
@@ -2111,7 +2111,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
             PROPAGATE_ERROR_FAIL(newSplitSDPNode->determineWinogradParams(newSplitConvNode));
         }
 
-        /* Step-4: Connect the newly added splitOp to the last one using compute edge */
+        /* Step-4: Connect the newly added splitOp to the last one using compute edge 用一个特殊的computer edge把分割的op按顺序链接起来*/
         newSplitConvCompEdge = graph()->addComputeEdge(splitConvNodes.back(), newSplitConvNode);
         newSplitSDPCompEdge = graph()->addComputeEdge(splitSDPNodes.back(), newSplitSDPNode);
 
@@ -2274,12 +2274,12 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
      * software splits are unavoidable. Everything that follows is profile governed i.e.
      * we will split nodes if the profile forces us to. A better profile later will
      * eventually emerge a better KPI. However, we do attempt to determine if any scope of
-     * hw automation is still left.
+     * hw automation is still left.之分两种情况，1.数据bank合适 2.权重bank大小合适
      */
 
     /* FI within (profile) alloted banks:-
      * FI + (hw-split-k(Ping-Pong) / hw-split-k(single KG))
-     */
+     *1.数据bank合适*/
     if (totalDataBanksNeeded < graph()->profile()->dataBanksAlloted())
     {
         if ( debugSplits() )
@@ -2313,9 +2313,9 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
 
     /* Split-Input within (profile) alloted banks:-
      * SW-partial-h + (FW (all KGs) / hw-split-k(Ping-Pong) / hw-split-k(single KG) / sw-split-k)
-     */
+     *2.权重bank大小合适*/
     else
-    {
+    {   //全部权重合适
         if (totalWtBanksNeeded + compWtReservedBank <= graph()->profile()->weightBanksAlloted())
         {
             if ( debugSplits() )
@@ -2326,7 +2326,7 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
             spareBanks = totalCbuffBanks - totalWtBanksNeeded - compWtReservedBank;
             PROPAGATE_ERROR_FAIL(splitData(spareBanks));
         }
-        // hw-split-k(Ping-Pong)
+        // hw-split-k(Ping-Pong)部分权重合适
         else if ((2*minWtBanksNeeded) + compWtReservedBank <= graph()->profile()->weightBanksAlloted())
         {
             if ( debugSplits() )
@@ -2337,7 +2337,7 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
             spareBanks = totalCbuffBanks - (2*minWtBanksNeeded) - compWtReservedBank;
             PROPAGATE_ERROR_FAIL(splitData(spareBanks));
         }
-        // hw-split-k(single KG)
+        // hw-split-k(single KG)只能最低一个kernel group(16/32)
         else if (minWtBanksNeeded + compWtReservedBank <= graph()->profile()->weightBanksAlloted())
         {
             if ( debugSplits() )

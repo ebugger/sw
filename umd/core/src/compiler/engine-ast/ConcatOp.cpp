@@ -45,7 +45,7 @@ void engine_ast::ConcatenationNode::captureCanonicalParams()
 {
     // default to concat along Channel direction.
     // TODO: For other modes, add support in network/layer and canonical ast too
-    params().setConcatAxis(ConcatAxisEnum::CONCAT_ALONG_C);
+    params().setConcatAxis(ConcatAxisEnum::CONCAT_ALONG_C);//默认拼接方向C
 }
 
 // not idempotent since relies on some details canonical details

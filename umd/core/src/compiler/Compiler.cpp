@@ -561,20 +561,20 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     //     PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: groupAtomicOperations");
     // }
     //*/
-
+    gLogInfo<<"PASS: Split/Tile conv node based on the CBuffer.." << std::endl;
     g.push_back( splitNodes(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: splitNodes");
     }
-
+    gLogInfo<<"PASS: fuse SPD nodes(fuse elt with one of its source).." << std::endl;
     g.push_back( fuseSubEngineOps(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseSubEngineOps");
     }
 
-    g.push_back( boundGraph(g.back()) );
+    g.push_back( boundGraph(g.back()) ); //没用？
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: boundGraph");

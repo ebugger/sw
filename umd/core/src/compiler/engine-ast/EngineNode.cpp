@@ -654,8 +654,8 @@ vector< surface::TensorSurfaceDesc *> engine_ast::Node::outputSurfaces() const
 //   all paths must consist of only requiredVia types
 //
 bool engine_ast::Node::dependsOn(Node *of,
-                                 const vector<EdgeType> &requiredVia,
-                                 const vector<EdgeType> &allowedVia) const
+                                 const vector<EdgeType> &requiredVia,//模式初始是两个：data/compute
+                                 const vector<EdgeType> &allowedVia) const//模式初始是空的
 {
     bool done = false, depends = false;
 
@@ -670,19 +670,19 @@ bool engine_ast::Node::dependsOn(Node *of,
         goto done;
     }
 
-    followNodes[this] = false;
+    followNodes[this] = false; //nodes never depend upon themselves.
 
     while ( followNodes.size() && !(done || depends) )
     {
 
-        const Node *followingNode = followNodes.begin()->first;
+        const Node *followingNode = followNodes.begin()->first; //从自己开始
         bool followingSatisfied = followNodes.begin()->second;
         EdgeSequence followingEdges;
 
         followNodes.erase(followingNode);
         followedNodes[followingNode] = followingSatisfied;
 
-        if ( followingNode == of )
+        if ( followingNode == of ) //是否找到了目标of
         {
             done = true;
             depends = followingSatisfied;

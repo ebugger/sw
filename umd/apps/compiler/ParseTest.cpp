@@ -251,7 +251,7 @@ NvDlaError parseAndCompile(const TestAppArgs* appArgs, TestInfo* i)
     // Compile
     PROPAGATE_ERROR_FAIL(compileProfile(appArgs, i));
 
-    /* Destroy network before closing wisdom context */
+    /* Destroy network before closing wisdom context */ 
     nvdla::destroyNetwork(i->wisdom->getNetwork());
 
     NvDlaDebugPrintf("closing wisdom context...\n");

@@ -314,7 +314,7 @@ vector<engine_ast::Node* > engine_ast::Graph::downstreamComputeNodes(engine_ast:
 vector<engine_ast::Node* > engine_ast::Graph::downstreamHazardNodes(engine_ast::Node* node)
 {
     NodeSequence r;
-    EdgeSequence d = downstreamHazardEdges(node);
+    EdgeSequence d = downstreamHazardEdges(node);//查找当前节点的HazardEdges
     for ( EdgeSequenceIterator ei = d.begin(); ei != d.end(); ++ei )
     {
         NodeSequence consumerNodes = downstreamNodes(*ei);
@@ -405,12 +405,12 @@ bool engine_ast::Graph::connectedDataNodes(engine_ast::Node *upStream, engine_as
 {
     return downStream->dependsOn(upStream, viaData, allowAll);
 }
-
-void engine_ast::Graph::replaceEdgeNodes(Edge* edge, ast::EdgeSide dir, Node* oldNode, Node* newNode)
+                                         //ori input        direct          
+void engine_ast::Graph::replaceEdgeNodes(Edge* edge, ast::EdgeSide dir, Node* oldNode, Node* newNode) //以node来看就是把node和他的输入解开所以方向是1
 {
-    removeEdgeFromNode(edge, dir, oldNode);
-    removeNodeFromEdge(edge, dir, oldNode);
-    appendNodeToEdge(edge, dir, newNode);
+    removeEdgeFromNode(edge, dir, oldNode);//把输入edge从node移除
+    removeNodeFromEdge(edge, dir, oldNode);//把node从输入edge移除
+    appendNodeToEdge(edge, dir, newNode);//把edge和新的node进行相互挂载
 }
 
 void engine_ast::Graph::replaceNodeEdges(Node* node, ast::EdgeSide dir, Edge* oldEdge, Edge* newEdge)
@@ -635,9 +635,9 @@ engine_ast::Edge *engine_ast::Graph::addComputeEdge(Node *fromNode, Node *toNode
 
     edge->setGraph(this);
     edge->setId(nextEdgeId());
-    edge->setComputeEdge();
+    edge->setComputeEdge(); //split切分后的两个node用一个新的edge链接
     edge->setOriginalTensor(0); // no tensor
-
+    gLogInfo<<"\tFork one Computer Edge(w/o ori tensor):" << edge->id()<<" to connect from: "<<fromNode->name()<< " to "<<toNode->name()<<std::endl; 
     if ( !connectNodesWithEdge(edge, fromNode, toNode) )
     {
         THROW_ERROR(NvDlaError_BadValue, "failed to insert compute edge %s between %s and %s",
@@ -887,7 +887,9 @@ void engine_ast::Graph::printGraph(engine_ast::Graph* g, bool nested, std::strin
             }
             if ((*ii)->originalTensor())
             {
-                gLogInfo << "[" << "tt-" << (*ii)->originalTensor()->getTensorType() << "],";
+                gLogInfo << "[" << (*ii)->originalTensor()->tt_cstr() << "],";
+            }else if((*ii)->edgeType() == engine_ast::EdgeTypeEnum::COMPUTE){
+                gLogInfo << "[CompEdge]";
             }
             gLogInfo << " ";
         }
@@ -902,7 +904,9 @@ void engine_ast::Graph::printGraph(engine_ast::Graph* g, bool nested, std::strin
             }
             if ((*ii)->originalTensor())
             {
-                gLogInfo << "[" << "tt-" << (*ii)->originalTensor()->getTensorType() << "],";
+                gLogInfo << "["  << (*ii)->originalTensor()->tt_cstr() << "],";
+            }else if((*ii)->edgeType() == engine_ast::EdgeTypeEnum::COMPUTE){
+                gLogInfo << "[CompEdge]";
             }
             gLogInfo << " ";
         }
@@ -1804,7 +1808,7 @@ fail:
     return e;
 }
 
-/*---------------------------------Topologically Sort-----------------------*/
+/*---------------------------------Topologically Sort这个过程是要处理分割的节点的， 所以和之前的处理scoreorder不同-----------*/
 NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
 {
    /*
@@ -1863,21 +1867,21 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
     const EdgeSequence& inEdges = inputEdges();
     if (inEdges.size() > 0)
     {
-        EdgeSequence::const_iterator ei = inEdges.end();
+        EdgeSequence::const_iterator ei = inEdges.end();//沿着所有网络输入
         do {
             --ei;
-            NodeSequence consumerNodes = downstreamNodes(*ei);
+            NodeSequence consumerNodes = downstreamNodes(*ei); //向下
 
             if (consumerNodes.size() > 0)
             {
-                NodeSequence::const_iterator ni = consumerNodes.end();
+                NodeSequence::const_iterator ni = consumerNodes.end();  //处理每一个子节点
                 do {
                     --ni;
                     // push the node only if its not dependent on any other nodes
-                    const NodeSequence& ancestors = upstreamNodes(*ni);
+                    const NodeSequence& ancestors = upstreamNodes(*ni);//如果当前子节点没有父节点，也就是input edge往下的第一个独立的node
                     if (ancestors.size() == 0)
                     {
-                        S.push(*ni);
+                        S.push(*ni); //就入栈
                     }
                 }
                 while (ni != consumerNodes.begin());
@@ -1887,32 +1891,32 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
     }
 
     while (!S.empty()) {
-        Node * currNode = S.top();
-        S.pop();
-        if (visitedNodes.find(currNode) == visitedNodes.end())
+        Node * currNode = S.top();//保存栈顶元素后
+        S.pop(); //把当前的节点弹出栈
+        if (visitedNodes.find(currNode) == visitedNodes.end()) //如果当前的节点没有被访问过
         {
-            topological_order.push_back(currNode);
-            visitedNodes.insert(currNode);
+            topological_order.push_back(currNode);//把这个节点加入整体网络拓扑结构中的尾部
+            visitedNodes.insert(currNode); //然后把节点设置成访问过
 
            /* Push downstream nodes with compute edges first because data edges take precedence
             * In a convolution split diamond,
             *           (split)
             *             |
             *            / \
-            *           /   \
+            *           /   \ (data edge)
             *          /     \
             *         /       \
             *     (op C1)====>(op C2)
-            *        |         |
-            *        |         |
+            *        | (compute |
+            *        |    edge) |
             *     (op S1)====>(op S2)
             *        \         /
             *         \       /
-            *          \     /
+            *          \     /(data edge)
             *           \   /
             *          (concat)
             * We need to make sure fused nodes are stick together,
-            * S1 needs to be popped off stack before C2
+            * S1 needs to be popped off stack before C2 优先弹出， 只有弹出后才会处理当前这个节点， 比如设置成访问等..
             */
 
             // push hazard edge children first, then compute edge children, then data edge children
@@ -1944,8 +1948,8 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
                 }
                 while (ni != consumerHazardNodes.begin());
             }
-            // same logic for downstream nodes connected via compute edge
-            NodeSequence consumerComputeNodes = downstreamComputeNodes(currNode);
+            // same logic for downstream nodes connected via compute edge 顺序排在data node前面， why？
+            NodeSequence consumerComputeNodes = downstreamComputeNodes(currNode);//只有从分拆的首节点开始往下走才能有compute node，否则会先走下一个打的分支从最后一个分拆节点回溯到首届点
             if (consumerComputeNodes.size() > 0)
             {
                 NodeSequenceIterator ni = consumerComputeNodes.end();
@@ -1971,25 +1975,25 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
                 while (ni != consumerComputeNodes.begin());
             }
             // same logic for downstream nodes connected via data edge
-            NodeSequence consumerDataNodes = downstreamDataNodes(currNode);
+            NodeSequence consumerDataNodes = downstreamDataNodes(currNode);//如果当前节点下级有子数据节点(先拿到当前节点的下级edge，如果edge类型是data那么继续向下得到目标node)
             if (consumerDataNodes.size() > 0)
             {
-                NodeSequenceIterator ni = consumerDataNodes.end();
+                NodeSequenceIterator ni = consumerDataNodes.end();//通过每一个子节点
                 do {
                     --ni;
-                    NodeSequence producerNodes = upstreamNodes(*ni);
+                    NodeSequence producerNodes = upstreamNodes(*ni);//访问所有父节点，注意可能会有横向compute节点
 
-                    bool ancestorReady = true;
+                    bool ancestorReady = true; //默认情况下，1对一的算子，由于得到了当前节点的produce节点，所以认为produce节点也就是祖先节点，已经被遍历了，应该是能往下继续运行了
                     for (NodeSequenceIterator nj = producerNodes.begin(); nj != producerNodes.end(); ++nj)
                     {
-                        if (visitedNodes.find(*nj) == visitedNodes.end())
+                        if (visitedNodes.find(*nj) == visitedNodes.end())//但是如果这个父节点没有被访问过，也就是运行当前节点还需要这个没被访问过的节点的数据依赖
                         {
-                            ancestorReady = false;
-                            break;
+                            ancestorReady = false;//所以把当前节点的依赖设置成否，也就是不能继续向下运行
+                            break; //只要发现数据依赖性不满足就跳出当前的检测父节点的循环， 开始处理下一个子节点(可能是横向的compute节点)
                         }
                     }
 
-                    if (ancestorReady)
+                    if (ancestorReady)//当访问到拆分的首节点就从这个首结点开始，放入栈中
                     {
                         S.push(*ni);
                     }
@@ -2012,7 +2016,7 @@ NvDlaError engine_ast::Graph::resolveDataDependencies(const NodeSequence& allNod
 {
     NvDlaError e = NvDlaSuccess;
 
-    for (NodeSequence::const_iterator ni = allNodes.begin(), nj = ni+1; nj != allNodes.end(); ni = nj++)
+    for (NodeSequence::const_iterator ni = allNodes.begin(), nj = ni+1; nj != allNodes.end(); ni = nj++) //注意begin是首元素， end是末尾元素的下一个空位置
     {
         PROPAGATE_ERROR_FAIL( (*ni)->resolveDataDependencies(*nj) );
     }

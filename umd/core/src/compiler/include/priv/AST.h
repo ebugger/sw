@@ -71,8 +71,8 @@ typedef SequenceEnum<EdgeDirectionEnum, NvU8> EdgeDirection;
 //     GEN_ENUM(FIRST, 0U) GEN_ENUM(SECOND, 1U) GEN_ENUM(BOTH, 2U)
 // };
 // enum EdgeSideEnum {
-//     FIRST  = 0U,  输入
-//     SECOND = 1U,  输出
+//     FIRST  = 0U,  输出
+//     SECOND = 1U,  输入
 //     BOTH   = 2U,
 // };
 enum EdgeSideEnum {
@@ -367,7 +367,11 @@ public:
     //
     EdgeScoresIterator fetchEdgeScore(int time, Edge *edge)
     {
-        gLogInfo << "\t\t"<< __func__ << " in m_edge_score edge=" << edge->id()<<"/" <<edge->originalTensor()->getName()<< std::endl;
+        if(edge->originalTensor()) {
+            gLogInfo << "\t\t"<< __func__ << " in m_edge_score edge=" << edge->id()<<"/" <<edge->originalTensor()->getName()<< std::endl;            
+        }else {
+            gLogInfo << "\t\t"<< __func__ << " in m_edge_score edge=" << edge->id()<<" w/o original tensor" << std::endl;            
+        }
         EdgeScoresIterator f_i = findEdge(edge);
         if ( f_i == edgeEnd() )
         {
@@ -430,7 +434,7 @@ public:
     //
     EdgeScoresIterator evaluateEdgeScore(int time, Edge *edge)
     {
-        gLogInfo << __func__ << " for edge=" << edge->id() <<"/"<<edge->originalTensor()->getName()<< std::endl;
+        gLogInfo << __func__ << " for edge=" << edge->id() /*<<"/"<<edge->originalTensor()->getName()*/<< std::endl;
         EdgeScoresIterator edge_score_i;
         NodeSequence up_nodes;
 
@@ -847,10 +851,15 @@ protected:
 
             if ( i_eq_j )
             {
-                gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << 
-                     (i->first.first?i->first.first->name():i->first.second->originalTensor()->getName())<< i->second.toString() << "] < j[" <<
-                     (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():j->first.second->originalTensor()->getName())<< j->second.toString() << "] = " << i_lt_j << std::endl;
-
+                //if(i->first.second->originalTensor() && j->first.second->originalTensor()){
+                    gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << 
+                        (i->first.first?i->first.first->name():(i->first.second->originalTensor()?i->first.second->originalTensor()->getName():"none"))<< i->second.toString() << "] < j[" <<
+                        (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():(j->first.second->originalTensor()?j->first.second->originalTensor()->getName():"none"))<< j->second.toString() << "] = " << i_lt_j << std::endl;
+                // }else {
+                //     gLogInfo << "type tie-breaker elem i [" << (i->first.first?"node: ":"edge: ") << 
+                //         (i->first.first?i->first.first->name():"None")<< i->second.toString() << "] < j[" <<
+                //         (j->first.first?"node: ":"edge: ") <<(j->first.first?j->first.first->name():"None")<< j->second.toString() << "] = " << i_lt_j << std::endl;
+                // }
                 // nodes before edges if otherwise equal
                 if ( i->first.first && j->first.second )
                 {
@@ -1440,36 +1449,36 @@ public:
             goto done;
         }
 
-        for (EdgeSequenceIterator n1ie = n1_input_edges.begin(); n1ie != n1_input_edges.end(); ++n1ie)
+        for (EdgeSequenceIterator n1ie = n1_input_edges.begin(); n1ie != n1_input_edges.end(); ++n1ie)  //如果N1的输入
         {
-            if (std::find(n2_output_edges.begin(), n2_output_edges.end(), *n1ie) != n2_output_edges.end())
+            if (std::find(n2_output_edges.begin(), n2_output_edges.end(), *n1ie) != n2_output_edges.end()) //包含在N2的输出中
             {
                 res = true;
                 goto done;
             }
         }
 
-        for (EdgeSequenceIterator n1oe = n1_output_edges.begin(); n1oe != n1_output_edges.end(); ++n1oe)
+        for (EdgeSequenceIterator n1oe = n1_output_edges.begin(); n1oe != n1_output_edges.end(); ++n1oe) //如果N1的输出
         {
-            if (std::find(n2_input_edges.begin(), n2_input_edges.end(), *n1oe) != n2_input_edges.end())
+            if (std::find(n2_input_edges.begin(), n2_input_edges.end(), *n1oe) != n2_input_edges.end())//包含在N2的输入
             {
                 res = true;
                 goto done;
             }
         }
 
-        for (EdgeSequenceIterator n2ie = n2_input_edges.begin(); n2ie != n2_input_edges.end(); ++n2ie)
+        for (EdgeSequenceIterator n2ie = n2_input_edges.begin(); n2ie != n2_input_edges.end(); ++n2ie)  //如果N2的输入
         {
-            if (std::find(n1_output_edges.begin(), n1_output_edges.end(), *n2ie) != n1_output_edges.end())
+            if (std::find(n1_output_edges.begin(), n1_output_edges.end(), *n2ie) != n1_output_edges.end()) //包含在N1的输出
             {
                 res = true;
                 goto done;
             }
         }
 
-        for (EdgeSequenceIterator n2oe = n2_output_edges.begin(); n2oe != n2_output_edges.end(); ++n2oe)
+        for (EdgeSequenceIterator n2oe = n2_output_edges.begin(); n2oe != n2_output_edges.end(); ++n2oe)  //如果N2的输出
         {
-            if (std::find(n1_input_edges.begin(), n1_input_edges.end(), *n2oe) != n1_input_edges.end())
+            if (std::find(n1_input_edges.begin(), n1_input_edges.end(), *n2oe) != n1_input_edges.end())  //包含在N1的输入
             {
                 res = true;
                 goto done;
@@ -1855,12 +1864,12 @@ protected:
         for ( f = begin; f != end; ++f )
         {
             // lose reference to the sought after edge, don't delete it
-            if ( *f != edge )
+            if ( *f != edge )//保留非目标edge
             {
                 new_edges.push_back(*f);
             }
         }
-        n_attr->m_edges[side] = new_edges;
+        n_attr->m_edges[side] = new_edges;//更新为除目标外的edges
     }
 
     void removeNodeFromEdge_Internal(EdgeAttr *e_attr, Node *node, size_t side)
@@ -1870,12 +1879,12 @@ protected:
             f, begin = e_attr->m_nodes[side].begin(), end = e_attr->m_nodes[side].end();
         for ( f = begin; f != end; ++f )
         {
-            if ( *f != node )
+            if ( *f != node )//保留除目标外的node
             {
                 new_nodes.push_back(*f);
             }
         }
-        e_attr->m_nodes[side] = new_nodes;
+        e_attr->m_nodes[side] = new_nodes;//更新
     }
 };
 
