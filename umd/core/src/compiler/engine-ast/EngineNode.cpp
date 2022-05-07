@@ -652,17 +652,17 @@ vector< surface::TensorSurfaceDesc *> engine_ast::Node::outputSurfaces() const
 // . requiredVia -> nil: && allowedVia -> nil: simple connection test.
 // . requiredVia -> !nil  && allowedVia -> nil: conntection test where
 //   all paths must consist of only requiredVia types
-//
+//             down node            up node 
 bool engine_ast::Node::dependsOn(Node *of,
-                                 const vector<EdgeType> &requiredVia,//模式初始是两个：data/compute
-                                 const vector<EdgeType> &allowedVia) const//模式初始是空的
+                                 const vector<EdgeType> &requiredVia,//模式初始是三个中的一个：data/compute/harzard
+                                 const vector<EdgeType> &allowedVia) const//模式初始是空的,未指明
 {
     bool done = false, depends = false;
 
-    map< const Node *, bool> followNodes;
-    map< const Node *, bool> followedNodes;
+    map< const Node *, bool> followNodes;//类似于栈。临时存放要继续处理的node
+    map< const Node *, bool> followedNodes;//向上的， 已经跟踪的所有node
 
-    bool requires = requiredVia.size() != 0;
+    bool requires = requiredVia.size() != 0; //初始化传进来的值必须是三个模式中的一个
     bool allows   = allowedVia.size()  != 0;
 
     if ( of == this )
@@ -675,45 +675,45 @@ bool engine_ast::Node::dependsOn(Node *of,
     while ( followNodes.size() && !(done || depends) )
     {
 
-        const Node *followingNode = followNodes.begin()->first; //从自己开始
-        bool followingSatisfied = followNodes.begin()->second;
-        EdgeSequence followingEdges;
+        const Node *followingNode = followNodes.begin()->first; //从栈顶开始
+        bool followingSatisfied   = followNodes.begin()->second; //初始为不满足
+        EdgeSequence followingEdges;//向上的edge
 
-        followNodes.erase(followingNode);
-        followedNodes[followingNode] = followingSatisfied;
+        followNodes.erase(followingNode); //弹出， 出栈
+        followedNodes[followingNode] = followingSatisfied; //更新当前已跟踪节点的满足信息
 
         if ( followingNode == of ) //是否找到了目标of
         {
-            done = true;
-            depends = followingSatisfied;
+            done = true; //设置while的循环退出
+            depends = followingSatisfied; //更新最终结果 是否有依赖
             continue;
         }
 
-        followingEdges = graph()->upstreamEdges(followingNode);
+        followingEdges = graph()->upstreamEdges(followingNode);//开始向上搜寻当前跟踪节点的edge
 
         for ( size_t fei = 0, FEI = followingEdges.size(); fei != FEI; ++fei )
         {
-            Edge *testEdge    = followingEdges[fei];
+            Edge *testEdge    = followingEdges[fei];//从每一个向上的edge
             EdgeType testType = testEdge->edgeType();
-            bool testEdgeSatisfies, satisfied;
-            bool follow = (!allows) || ( find(allowedVia.begin(), allowedVia.end(), testType) != allowedVia.end() );
+            bool testEdgeSatisfies, satisfied;  //如果allowVia指定了， 那么就通过验证这个edge的type是否是allowvia的一种，如果是的话就继续fllow
+            bool follow = (!allows) || ( find(allowedVia.begin(), allowedVia.end(), testType) != allowedVia.end() );//如果没指定就直接默认是继续fllow的
             NodeSequence upstreamNodes;
 
             if ( !follow )
             {
                 continue; // unfollowable path (edge type not allowed)
             }
-
+            //如果指定了requires必须的edage type，那么就在必须的和允许的类型中查找，找到了就是测试edge的类型满足
             testEdgeSatisfies = (!requires) || ( find(requiredVia.begin(), requiredVia.end(), testType) != requiredVia.end() ) ||
                                                ( find(allowedVia.begin(), allowedVia.end(), testType) != allowedVia.end() );
             satisfied = followingSatisfied || testEdgeSatisfies;
 
-            upstreamNodes = graph()->upstreamNodes(testEdge);
+            upstreamNodes = graph()->upstreamNodes(testEdge);//沿着edge向上得到node
 
             for ( size_t uni = 0, UNI = upstreamNodes.size(); uni != UNI; ++uni )
             {
                 Node *upstreamNode = upstreamNodes[uni];
-                map<const Node *, bool>::iterator fun = followedNodes.find(upstreamNode);
+                map<const Node *, bool>::iterator fun = followedNodes.find(upstreamNode);//在向上的已经跟踪的node中查找当前的这个向上的节点
 
                 // if we've never encountered this node before
                 // then follow it.  if we've seen it before only
@@ -721,14 +721,14 @@ bool engine_ast::Node::dependsOn(Node *of,
                 // then, but now is.
                 if ( fun == followedNodes.end() )
                 {
-                    followNodes[upstreamNode] = satisfied;
+                    followNodes[upstreamNode] = satisfied; //如果没跟踪过， 就吧这个节点加入栈，准备继续处理
                 }
-                else
+                else//如果跟踪过，且满足跟踪的edge类型条件而且之前状态时不满足
                 {
                     if ( satisfied && (fun->second == false) )
                     {
-                        followNodes[upstreamNode] = true;
-                        followedNodes[upstreamNode] = true;
+                        followNodes[upstreamNode] = true;   //入栈，并更新状态为true。 准备下一轮继续处理
+                        followedNodes[upstreamNode] = true; //在访问过的node群中更新当前node 的状态
                     }
                 }
             }
@@ -804,7 +804,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
         // 'currNode' may be connected to fusedNodes of 'previous'
         Node * fusedNode = previous;
         while (fusedNode) {
-            if  (graph()->adjacentNodes(fusedNode,next)
+            if  (graph()->adjacentNodes(fusedNode,next)//判断各自的输入、输出是否相互依赖
                  // uncomment this line to for faster enabling same engine typed nodes from threads to threads
                  // when no register group race conditions
                  // e.g. diamonds from group convolutions
@@ -831,7 +831,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
             }
         }
         else if (fusedNode->engineType() == next->engineType() && !graph()->adjacentNodes(fusedNode,next))
-        {
+        {   //如果是不相邻的两个同一个硬件的算子，那么他们就需要做内存的解决方案
             // if fusedNode and next are non-adjacent nodes with same engine type
             //      we need this edge for mem resolve
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(fusedNode, next);
@@ -848,7 +848,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
         }
         else
         {
-            // fusedNodes is connected to currNode
+            // fusedNodes is connected to currNode 两个算子相邻
             previous = fusedNode;
         }
 
@@ -859,15 +859,15 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
             //      then there's a computeEdge added
             // need to attach OP_COMPLETED
 
-            if (previous->isSoftwareNode())
+            if (previous->isSoftwareNode())  //split/concat
             {
-                for (size_t et = 0; et < EngineType::num_elements(); ++et)
-                {
+                for (size_t et = 0; et < EngineType::num_elements(); ++et) //10
+                {   //感觉初始状态是链接的， 但是这个是软件算子， 所以要和实际硬件断开
                     Node * consumer = previous->dependencyParams(0).consumer(et).node();
                     NvU8 producerType = (previous)->engineType().v();
-
+                    //如果有对应的硬件类型的下节点， 那么吧下节点的对应的硬件类型的上节点设置为NULL
                     if (consumer) consumer->dependencyParams(0).producer(producerType).setNode(NULL);
-                    previous->dependencyParams(0).consumer(et).setNode(NULL);
+                    previous->dependencyParams(0).consumer(et).setNode(NULL);//直接吧当前节点的下节点设置成NULL
                 }
             }
             if (next->isSoftwareNode())

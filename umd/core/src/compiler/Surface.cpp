@@ -348,7 +348,7 @@ NvU64 FeatureDataDesc::size(const TensorSurfaceDesc* tsd)
     return surfaceStride(tsd) * channelGroups(tsd);
 }
 
-/*-----------------------ELTWISE DATA DESC APIs------------------------------*/
+/*-----------------------ELTWISE DATA DESC APIs------------------------------output的chn？*/
 NvU32 EltwiseDataDesc::channelsPerGroup(const TensorSurfaceDesc* tsd)
 {
     nvdla::priv::engine_ast::Edge *edge_par =  tsd->parentEdge();
@@ -498,7 +498,7 @@ NvU64 WeightDesc::size(const TensorSurfaceDesc* tsd)
 {
     nvdla::priv::engine_ast::Edge *edge_par =  tsd->parentEdge();
     NvU32 cbuf_bank_width = edge_par->graph()->target_config()->bufEntryWidth();
-    gLogInfo<<"\tCbuf_bank_width:"<<cbuf_bank_width<<std::endl;
+    gLogInfo<<"\tCbuf_bank_width:"<<cbuf_bank_width;//<<std::endl;
     return ROUNDUP_AND_ALIGN(tsd->dimensions().n *
                              tsd->dimensions().c *
                              tsd->dimensions().h *

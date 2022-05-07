@@ -165,8 +165,8 @@ public:
      * @param p 
      */
     static void insert(D p)
-    {   //在parse caffe的时候每创建一个layer的时候都会将layer类型的一个BasePrivDiamond的pair塞进来，方便创建graph node的时候查找
-         s_base_priv_diamond_map[p.base().priv()] = p;  //相当于创建了pair(layer, [(ILayer. layer) (Iocnv, Conv)])
+    {   //在parse caffe创建network的时候每创建一个layer的时候都会将layer类型的一个BasePrivDiamond的pair塞进来，方便创建graph node的时候查找
+         s_base_priv_diamond_map[p.base().priv()] = p;  //相当于创建了pair(layer, diamond(ILayer,layer, Iocnv, Conv))
     }
     static D find(typename D::BasePrivType *base_priv)
     {
@@ -188,11 +188,11 @@ protected:
  * @param base_priv 
  * @return D::DerivedPrivType* 
  */
-template <class D>
+template <class D>// typename D::BasePrivType实际上就是指的Layer
 typename D::DerivedPrivType * LayerFactory::derivedPriv(typename D::BasePrivType *base_priv)
 {
-    D d  = BasePrivDiamondMap<D>::find(base_priv);
-    return d.derived().priv();
+    D d  = BasePrivDiamondMap<D>::find(base_priv); //在这个map里面通过Layer找到对应的Diamoind
+    return d.derived().priv();  //从而返回Dp
 }
 
 template <class D> D LayerFactory::newLayer()
@@ -231,14 +231,14 @@ typename D::BaseInterfaceType * LayerFactory::deserializeLayer(WisdomContainerEn
 //!
 //! note: concurrent access to map is... well, whatever std::map allows.
 //!
-
-BiMap<ILayer *, Layer *> LayerFactory::s_priv;
+//      实例                    变量名
+BiMap<ILayer *, Layer *> LayerFactory::s_priv;  //BiMap实例相当于是一个map，map里的元素是*
 BiMap<void *, ILayer *> LayerFactory::s_self;
 
 Layer *LayerFactory::priv(ILayer *layer)
 {
     // gLogError << __func__ << " looking up priv for base_i=" << layer << endl;
-    BiMap<ILayer *, Layer *>::left_iterator f = s_priv.find_left(layer);
+    BiMap<ILayer *, Layer *>::left_iterator f = s_priv.find_left(layer); //map找左边的key， 返回右边的value
     if ( f == s_priv.end_left() ) {
         return NULL;
     }

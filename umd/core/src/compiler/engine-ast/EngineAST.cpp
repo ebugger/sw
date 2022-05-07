@@ -254,7 +254,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
         eng_graph->insertEdge(engine_edge);
         gLogInfo<<"e_Edge:"<<engine_edge->id()<<"/"<<engine_edge->originalTensor()->getName()<<std::endl;
     }
-
+    gLogInfo<<"-------------End of Create eng edge to mirror can edge complete-------------"<<std::endl;
     if (profile->multiBatchSize() == 0)
     {
         // Patch up profile->multiBatchSize()
@@ -312,7 +312,7 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
             gLogInfo <<"]"<< std::endl;
         }
     }
-
+    gLogInfo<<"-------------End of Create eng node based on can node complete-------------"<<std::endl;
     for ( vector<canonical_ast::Edge *>::const_iterator cie = can_graph->inputEdges().begin();
             cie != can_graph->inputEdges().end(); ++cie)
     {
@@ -439,12 +439,12 @@ engine_ast::Graph *engine_ast::generateGraph(Profile *profile, TargetConfig *tar
             gLogInfo << (*eni)->name() << "/" << (*eni)->id() << "/"
                      << canNodeName << ":" << endl;
             for (ESI ii = (*eni)->inputEdges().begin(); ii != (*eni)->inputEdges().end(); ++ii)
-                gLogInfo << "\tin " << (*ii)->id()<<"/"<<(*ii)->originalTensor()->getName() << endl;
+                gLogInfo << "\tin " << (*ii)->id()<<"/"<<(*ii)->originalTensor()->getName() <<"/"<<(*ii)->originalTensor()->tt_cstr()  << endl;
             for (ESI ii = (*eni)->outputEdges().begin(); ii != (*eni)->outputEdges().end(); ++ii)
-                gLogInfo << "\tout " << (*ii)->id()<<"/"<<(*ii)->originalTensor()->getName() << endl;
+                gLogInfo << "\tout " << (*ii)->id()<<"/"<<(*ii)->originalTensor()->getName() <<"/"<<(*ii)->originalTensor()->tt_cstr()  << endl;
             for (ESI ii = (*eni)->auxEdges().begin(); ii != (*eni)->auxEdges().end(); ++ii)
-                gLogInfo << "\taux " << (*ii)->id()<<"/"<<(*ii)->originalTensor()->getName() << endl;
-        }
+                gLogInfo << "\taux " << (*ii)->id()<<"/"<<(*ii)->originalTensor()->getName() <<"/"<<(*ii)->originalTensor()->tt_cstr()  << endl;
+        } gLogInfo << "------------------Print engine graph complete-----------------------"<< endl;
     }
 
     eng_graph->ordering()->generate();

@@ -193,9 +193,9 @@ struct FeatureDataDesc
 
     // N  (used during multi-batch mode)
     static NvU32 numBatches(const TensorSurfaceDesc*);
-    // C  (=ceil(total_channels/m_channels_per_group))
+    // 输出的C  (=ceil(total_channels/m_channels_per_group))
     static NvU32 channelGroups(const TensorSurfaceDesc*);
-    // C' (=16 for int16/fp16; =32 for int8)
+    // 输出的C' (=16 for int16/fp16; =32 for int8)
     static NvU32 channelsPerGroup(const TensorSurfaceDesc*);
     static NvU32 height(const TensorSurfaceDesc*);
     static NvU32 width(const TensorSurfaceDesc*);

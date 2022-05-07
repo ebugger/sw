@@ -463,7 +463,7 @@ public:
             nodes_finishable_time = std::max<int>(nodes_finishable_time, node_score_i->second.finishableTime());
         }
 
-        if ( all_nodes_finished )
+        if ( all_nodes_finished )//如果没有
         {
             edge_score_i->second.setFinishable(nodes_finishable_time); // := same as node finishable
             edge_score_i->second.setFinished(nodes_finished_time); // := same as node finish
@@ -480,7 +480,7 @@ public:
     //
     // evaluate node state based upon upstream edges.
     // unlike edge evaluation, node evaluation does *not* finish nodes.
-    //
+    //先找到当前node的score(discoverd time),然后找node 的输入后得到输入的score,再顺着输入继续向上找到node，处理node是否能为finishable.
     NodeScoresIterator evaluateNodeScore(int time, Node *node)
     {
         gLogInfo << __func__ << " node=" << node->id() << " name="<<node->name()<< std::endl;
@@ -557,7 +557,7 @@ public:
 
 protected:
     G *m_graph;
-    NodeScores m_node_score;
+    NodeScores m_node_score;  //每种类型的元素对应的状态
     EdgeScores m_edge_score;
     ElemScores m_elem_score;
 };
@@ -635,7 +635,7 @@ public:
         typename EdgeSequence::const_iterator ie_i;  //const_iterator vector迭代器的指向不能变，但指向的对象的值可以改变 
         std::list<GraphTraversalPointer<G>> pointer_list;   //在scoreorder创建过程中 临时存在的一个list， 只通过pushback更新
 
-        gLogInfo << "generating scoreboard." << std::endl;
+        gLogInfo << "-----------------generating scoreboard----------------------." << std::endl;
 
         if ( !m_graph ) {
             ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "missing graph");
@@ -646,7 +646,7 @@ public:
         // for all graph input edges...从输入edge切入
         for ( ie_i = m_graph->inputEdges().begin(); ie_i != m_graph->inputEdges().end(); ++ie_i)
         {
-            // this *should* be zero sized, check it. input edge上游不能有node， 通过edge的属性中的两个方向的vector查找node
+            // this *should* be zero sized, check it. input edge上游不能有node,但必须查找保证不出错， 通过edge的属性中的两个方向的vector查找node
             NodeSequence upstream_nodes = m_graph->upstreamNodes(*ie_i);
             if ( upstream_nodes.size() )
             {
@@ -701,8 +701,8 @@ public:
                 gLogInfo <<"-------"<<std::endl;
                 check_score_i = m_scores.evaluateScore(*p_i, time);
 
-                if ( check_score_i->second.isFinishable() && (finishable_i == pointer_list.end() ) )//下面执行一次后finishable_i指向有意义的元素， 而不是尾部，所以下一次不会在执行了。
-                {
+                if ( check_score_i->second.isFinishable() && (finishable_i == pointer_list.end() ) )//下面执行一次后finishable_i指向有意义的元素， 而不是尾部，所以这个分支不会再执行更新finishable_i了。
+                {   //相当于当有多个node的时候， 执行第一个node的处理后， 后面的node只跑score，但不处理最终的状态，所以后面的node再后面的处理中会跑多次，也就是临时状态会更新多次。
                     finishable_i = p_i;gLogInfo << "update finishable iter to GTP(<->current node)"<<p_i->node()->name() <<" and ready to finish this node" << std::endl;
                 }
             }
@@ -734,7 +734,7 @@ public:
             //
             m_scores.finishNode(ptr, time);
             time++; 
-            gLogInfo <<"↓edges, also make sure no dangling edges" << std::endl;
+            gLogInfo <<"↓edges, also make sure no dangling edges with currecnt processing node" << std::endl;
             //
             // if there's more than one downstream node then add to the pointer list.
             // but add next to this one so stable-ish ordering is maintained.
@@ -799,7 +799,7 @@ public:
         } // while path pointers exist
       
         sort();
-
+    gLogInfo << "-----------------END generating scoreboard----------------------." << std::endl;
     fail:
         return e;
 
@@ -933,7 +933,7 @@ protected:
         // for ( node_score_i = m_node_score_order.begin(); node_score_i != m_node_score_order.end(); ++node_score_i ) {
         //     gLogInfo << "\t\tsc=[" << node_score_i->second.toString() << "]" << std::endl;
         // }
-        for (int i = 0; i != m_node_score_order.size(); ++i ) {
+        for (uint32_t i = 0; i != m_node_score_order.size(); ++i ) {
             gLogInfo << m_node_score_order[i]->first->name()<< "\t\t "<<"sc=[" << m_node_score_order[i]->second.toString() << "]" << std::endl;
         }
 #endif
@@ -949,7 +949,12 @@ protected:
         std::sort(m_edge_score_order.begin(), m_edge_score_order.end(), edge_score_sorter);
         std::sort(m_elem_score_order.begin(), m_elem_score_order.end(), elem_score_sorter);
 
-#if 1
+        gLogInfo << "m_elem_order after sort" << std::endl;
+        for ( uint32_t i = 0; i != m_elem_score_order.size(); ++i ) {
+            if(m_elem_score_order[i]->first.first) gLogInfo << "N:"<<m_elem_score_order[i]->first.first->name() << "\t\t "<<"sc=[" << m_elem_score_order[i]->second.toString() << "]" << std::endl;
+            else if(m_elem_score_order[i]->first.second) gLogInfo <<"E:"<< m_elem_score_order[i]->first.second->originalTensor()->getName() << "\t\t "<<"sc=[" << m_elem_score_order[i]->second.toString() << "]" << std::endl;
+        }
+#if 0
         //gLogInfo << "m_node_order" << &m_node_order << std::endl;
         gLogInfo << "m_node_order after sort" << std::endl;
         // for ( node_score_i = m_node_score_order.begin(); node_score_i != m_node_score_order.end(); ++node_score_i ) {
@@ -957,6 +962,11 @@ protected:
         // }
         for ( node_score_i = m_scores.nodeBegin(); node_score_i != m_scores.nodeEnd(); ++node_score_i ) {
             gLogInfo << node_score_i->first->name()<< "\t\t "<<"sc=[" << node_score_i->second.toString() << "]" << std::endl;
+        }
+        gLogInfo << "m_edge_order after sort" << std::endl;
+        for ( uint32_t i = 0; i != m_edge_score_order.size(); ++i ) {
+            //gLogInfo << m_edge_score_order[i]->first->name()<< std::endl;
+            gLogInfo << m_edge_score_order[i]->first->originalTensor()->getName() << "\t\t "<<"sc=[" << m_edge_score_order[i]->second.toString() << "]" << std::endl;
         }
 #endif
 

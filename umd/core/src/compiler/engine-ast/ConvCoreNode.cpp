@@ -86,7 +86,7 @@ engine_ast::SDPNode* engine_ast::ConvCoreNode::addSDPJointOpNode
             ORIGINATE_ERROR_FAIL(NvDlaError_NotSupported, "Don't support quantization mode: %s\n",
                                 graph()->profile()->quantizationMode().c_str());
         }
-        gLogInfo<<"/tNewly allocated rawScaleData"<< std::endl;
+        gLogInfo<<"\tNewly allocated rawScaleData"<< std::endl;
         procScaleBlob = (NvF32*)engine_ast::MemoryCollector::getInstance()->allocateMemory(rawScaleData.count * sizeof(NvF32));
         memset(procScaleBlob, 0.0, rawScaleData.count * sizeof(NvF32));
         rawScaleData.values = procScaleBlob;

@@ -72,9 +72,9 @@ canonical_ast::Node *canonical_ast::newCanonicalNode(Layer *orig_nw_layer)
 
     switch (original_type)
     {
-        case LayerType::kCONVOLUTION: {
+        case LayerType::kCONVOLUTION: {  //通过Layer找到对应的Diamond(创建network的layer的1是创建diamond2是创建layer和miamond的map)， 进而找到Derived Provate的实例， 这写查找的基础信息(Diamond)是network的addxxxlayer的时候创建好的
             ConvolutionLayer *conv_layer = LayerFactory::derivedPriv< ConvolutionLayerDiamond >( orig_nw_layer );  //< ConvolutionLayerDiamond >( orig_nw_layer )会被模板函数替换成PrivDiamond::BasePrivType orig_nw_layer
-            return canonical_ast::NodeFactory::newConvNode(conv_layer);
+            return canonical_ast::NodeFactory::newConvNode(conv_layer); //拿到指针后才开始创建can的node
           }
         case LayerType::kFULLY_CONNECTED: {
             FullyConnectedLayer *fc_layer = LayerFactory::derivedPriv< FullyConnectedLayerDiamond >( orig_nw_layer );
@@ -135,7 +135,7 @@ canonical_ast::Graph* canonical_ast::Graph::clone()
 }
 
 //
-// the following generates a 1:1 mapping with the Canonical graph input.
+// the following generates a 1:1 mapping with the Canonical graph input.注意是1:1的映射
 //
 canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
 {
@@ -172,8 +172,8 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
 
     for (int li = 0; li < network->getNumLayers(); li++)
     {
-        ILayer *ilayer = network->getLayer(li); //从网络实例中得到层的接口
-        Layer *layer = LayerFactory::priv(ilayer); //从层的接口中得到派生类的实例
+        ILayer *ilayer = network->getLayer(li); //从网络实例中得到层的接口(创建network的layer时候直接添加到一个Ilayer的vector，同时把得到的diamond中的Ibase和Pbase添加到为一个双向map中)
+        Layer *layer = LayerFactory::priv(ilayer); //从层的接口中得到派生类的类型实例(从双向的map中找到Ilayer对应的layer)
         if ( !(ilayer && layer) )
         {
             gLogError << __func__ << " encountered null layer at network layer index=" << li << endl;
@@ -195,7 +195,7 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
 
         node_layer[can_node] = layer;  //在graph中添加更新node到layer的映射
     }
-
+    gLogInfo<< "-----------------Adding connical Node to mirror network Layer complete---------------"<<endl;
     //
     // Now all the layer nodes are in the graph.
     // For each layer assemble the edges.
@@ -310,7 +310,7 @@ canonical_ast::Graph *canonical_ast::generateGraph(Network *network)
             }
         }
     }
-
+    gLogInfo<< "-----------------Adding connical Edge to mirror network tensor and attach to node complete---------------"<<endl;
     if ( input_edges.size() )
     {
         graph->setInputEdges(input_edges);
@@ -729,7 +729,7 @@ canonical_ast::ConvolutionNode* canonical_ast::NodeFactory::newConvNode(Convolut
     B b;//base node
     D d;//derived node
 
-    b = d = new canonical_ast::ConvolutionNode();
+    b = d = new canonical_ast::ConvolutionNode(); //基类node提供属性如名字，输入输出队列，op类型，graph等接口， 派生类主要是获得特定参数的接口
     d->captureNetworkParams(orig_nw_layer); //copy para from network to canonical struct
 
     s_conv_priv.insert(std::pair<B, D>(b, d));

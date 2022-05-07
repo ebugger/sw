@@ -499,54 +499,55 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         dump_eng.setFilename("engine_g.json");
         PROPAGATE_ERROR_FAIL( dump_eng.visitElems( g.back()->scoredOrdering()) );
     }
-    gLogInfo<<"PASS: register Buffers..." << std::endl;
+    gLogInfo<<"----------------Generate engine graph complated(initial transfer sw OP to hw op and add aux tedge)---------------------" << std::endl;
     g.push_back( registerBuffers(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: registerBuffers");
-    }
-    gLogInfo<<"PASS: preProcessAuxData(cvt SUB/DIV to ADD/MUL ops and Quantize/transform layout for IMG input layer weights and contrain BN none-repst value)" << std::endl;
+    }   PROPAGATE_ERROR_FAIL( dump_eng.visitElems( g.back()->scoredOrdering()) );
+    gLogInfo<<"--------------------PASS: register Buffers complete---------------" << std::endl;
+    
     g.push_back( preProcessAuxData(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compulation phase: preProcessAuxData");
-    }
-    gLogInfo<<"PASS: Fuse ops(Conv+BN/unit scale/bias+scale->bn)" << std::endl;
+    }  gLogInfo<<"-----PASS: preProcessAuxData(cvt SUB/DIV to ADD/MUL ops and Quantize/transform layout for IMG input layer weights and contrain BN none-repst value-completed--)" << std::endl;
+    
     g.push_back( mergeActivationOperations(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: mergeActivationOperations");
-    }
-    gLogInfo<<"PASS: Elt Ops scale process." << std::endl;
+    } gLogInfo<<"----------------PASS: Fuse ops(Conv+BN/unit scale/bias+scale->bn completed----------------------)" << std::endl;
+    
     g.push_back( updateScalingFactors(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: updateScalingFactors");
-    }
-    gLogInfo<<"PASS: Quantize all Aux Data(including fuse conv+bias(first phrase), etc...)" << std::endl;
+    }  gLogInfo<<"---------------PASS: Elt Ops scale process completed ----------------" << std::endl;
+    
     g.push_back( quantizeAuxData(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: quantizeAuxData");
-    }
-    gLogInfo<<"PASS: Fuse conv_engine(as there's no mem write port) with SPD engine, adjcent spd ops included" << std::endl;
+    } gLogInfo<<"-----------------PASS: Quantize all Aux Data(including fuse conv+bias(first phrase), etc... completed----------------)" << std::endl;
+    
     g.push_back( fuseOnTheFlyNodes(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseOnTheFlyNodes");
-    }
-    gLogInfo<<"PASS: Quantize including fuse conv+bias(second phrase), etc...)" << std::endl;
+    } gLogInfo<<"---------------PASS: Fuse conv_engine(as there's no mem write port) with SPD engine, adjcent spd ops included completed--------" << std::endl;
+    
     g.push_back( handleLowPrecisionConversions(g.back()) );
     if ( !g.back() )
     {
-        PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: handleLowPrecisionConversions");
-    }
-    gLogInfo<<"PASS: transform the layout for all Aux Data.." << std::endl;
+        PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: handleLowPrecisionConversions completed ------------------------");
+    }gLogInfo<<"---------------PASS: Quantize including fuse conv+bias(second phrase), etc...)" << std::endl;
+    
     g.push_back( translateAuxData(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: translateAuxData");
-    }
+    }gLogInfo<<"------------------PASS: transform the layout for all Aux Data.. completed ------------------------------------" << std::endl;
 
     g.push_back( reserveBuffers(g.back()) );
     if ( !g.back() )
@@ -561,18 +562,18 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     //     PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: groupAtomicOperations");
     // }
     //*/
-    gLogInfo<<"PASS: Split/Tile conv node based on the CBuffer.." << std::endl;
+    
     g.push_back( splitNodes(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: splitNodes");
-    }
-    gLogInfo<<"PASS: fuse SPD nodes(fuse elt with one of its source).." << std::endl;
+    } gLogInfo<<"------------------------PASS: Split/Tile conv node based on the CBuffer..completed --------------------------" << std::endl;
+    
     g.push_back( fuseSubEngineOps(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseSubEngineOps");
-    }
+    } gLogInfo<<"-----------------------PASS: fuse SPD nodes(fuse elt with one of its source)..completed ---------------------" << std::endl;
 
     g.push_back( boundGraph(g.back()) ); //没用？
     if ( !g.back() )
@@ -633,7 +634,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         if ( dumpPassGraph )
         {
             std::stringstream ss; ss << "eng_pre_pass_" << pass;
-            //            g.back()->dumpGraphJson(ss.str() + ".json", ss.str());
+                        //g.back()->dumpGraphJson(ss.str() + ".json", ss.str());
         }
 
         engine_ast::NodeSequence topological_order;

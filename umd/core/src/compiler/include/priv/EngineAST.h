@@ -3607,13 +3607,13 @@ protected:
 class ScoredDependencyOrdering : public ast::ScoredGraphOrdering< engine_ast::Graph >
 {
 public:
-    ScoredDependencyOrdering(engine_ast::Graph *g) : ast::ScoredGraphOrdering< engine_ast::Graph >(g) { }
+    ScoredDependencyOrdering(engine_ast::Graph *g) : ast::ScoredGraphOrdering< engine_ast::Graph >(g) { }  //就是复用了原来can graph的score ordering
     virtual ~ScoredDependencyOrdering() { }
 protected:
 };
 
 // this class flattens the scores out, but retains the original order given by the scored ordering.
-// we treat this as the front-end in that it pulls through from the scored order.
+// we treat this as the front-end in that it pulls through from the scored order. 复用原来can graph的score ordering后把edge分解成了三种
 class DependencyOrdering : public ast::GraphOrdering< engine_ast::Graph >
 {
 public:

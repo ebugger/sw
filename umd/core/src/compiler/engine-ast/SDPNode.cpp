@@ -359,7 +359,7 @@ NvU64 engine_ast::SDPNode::suggestSurfaceOffsetInBuffer(surface::TensorSurfaceDe
          */
         if (srcTSD->tensorCategory() == memory::TensorCategoryEnum::STREAM_TENSOR)
         {
-            offset = srcTSD->bufferOffset();gLogInfo<<"\t(input STREAM_TENSOR)Copy offset from "<<srcTSD->name()<<std::endl;
+            offset = srcTSD->bufferOffset();gLogInfo<<"\t(found input STREAM_TENSOR)Copy offset from "<<srcTSD->name()<<"to "<< outputEdges()[0]->tensorSurfaceDesc()->name()<<std::endl;
         }
         else
         {

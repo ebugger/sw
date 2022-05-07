@@ -244,7 +244,7 @@ protected:
  * @tparam BP 
  * @tparam DI 
  * @tparam DP 
- */
+ */ //       Ilayer        Layer        IConv        Conv
 template <typename BI, typename BP, typename DI, typename DP>
 class PrivDiamond
 {

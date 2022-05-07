@@ -38,7 +38,7 @@ namespace nvdla
 class INetwork;
 class ITensor;
 
-class ILayer
+class ILayer  //数字/大小相关的函数, 全部纯虚函数， 构造函数和析构函数都为空
 {
 public:
 
@@ -97,7 +97,7 @@ protected:
 
 
 
-class IConvolutionLayer : public virtual ILayer
+class IConvolutionLayer : public virtual ILayer  //定义了具体层的全部纯虚函数，成员变量用唯独一个参数结构体抱起来了，没有构造函数，只有默认析构函数
 {
 public:
 

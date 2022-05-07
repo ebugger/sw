@@ -559,7 +559,7 @@ namespace canonical_ast
         ast::ScoredGraphOrdering<Graph> *m_scored_ordering; //graph构造函数已经初始化了
     };
 
-    class Node
+    class Node  //主要是定义了一些node共有的特性比如名字，op类型，输入输出队列， 包含的graph，是否含有bias
     {
     public:
         virtual std::string className() const { return std::string("Node"); }
@@ -687,7 +687,7 @@ namespace canonical_ast
 
     // convolution layer
     // deconvolve 1st
-    class ConvolutionNode : public Node
+    class ConvolutionNode : public Node  //在基类基础上主要是自定义捕获network layer架构上的参数,同样也是把参数封装起来了
     {
     public:
         virtual std::string className() const { return std::string("ConvolutionNode"); }

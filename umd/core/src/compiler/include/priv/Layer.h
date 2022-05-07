@@ -113,7 +113,8 @@ public:
 typedef SequenceEnum<LayerFactoryType::Enum, NvU16> LayerTypeEnum;
 /**
  * @brief 实际就是创建两组pair， 一组对应基类(Ilayer, layer)， 一组对应派生类(Iconv,Conv)，
- * 
+ *        所谓的diamond就是指的iLayer ->Layer   ----->XLayer
+ *                             |------>IXLayer--------^
  */
 typedef PrivDiamond<ILayer, Layer, IConvolutionLayer,    ConvolutionLayer>    ConvolutionLayerDiamond;
 typedef PrivDiamond<ILayer, Layer, IFullyConnectedLayer, FullyConnectedLayer> FullyConnectedLayerDiamond;
@@ -191,7 +192,7 @@ public:
     static InputLayerDiamond          newInputLayer         (INetwork* network, const std::string& name,
                                                              ITensor* const *inputs, ITensor* output);
 
-
+    //                                       LayerFactory::derivedPriv< ConvolutionLayerDiamond >( orig_nw_layer )
     template <class D> static typename D::DerivedPrivType *derivedPriv(typename D::BasePrivType *base_priv);
 
 
@@ -208,7 +209,7 @@ protected:
 
 
 class Network;
-
+//名字/类型/输入/输出的tensor/属于的Inetwork， 有构造函数(设置前面描述的属性)和析构函数， 被保护起来了， 实现了ILayer里的虚函数， 但是set函数很多为空，而get是返回默认值
 class Layer : public virtual ILayer
 {
 public: // externally facing
@@ -300,7 +301,7 @@ protected:
 };
 
 
-class ConvolutionLayer : public virtual IConvolutionLayer, public priv::Layer
+class ConvolutionLayer : public virtual IConvolutionLayer, public priv::Layer  //函数的具体实现
 {
 public:
     ConvolutionLayer(INetwork * network, const std::string & name,

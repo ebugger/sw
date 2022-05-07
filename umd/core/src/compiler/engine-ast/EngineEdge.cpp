@@ -469,7 +469,7 @@ NvDlaError engine_ast::Edge::determineSurfaceOffsetInBuffer()
                                     <<clients.size()<<" consumer&producer node ";
     for (Graph::NodeUnorderedSetIterator cli = clients.begin(); cli != clients.end(); ++cli)
     {
-        // arguably, all client nodes should report the same surface offset in buffer
+        // arguably, all client nodes should report the same surface offset in buffer 除来batch情况下有offset，其他情况都是默认的0
         bufferOffset = std::max<NvU64>(bufferOffset, (*cli)->suggestSurfaceOffsetInBuffer(tsd));gLogInfo<<"\tfor node: "<<(*cli)->name() <<" "<<bufferOffset;
     }
     gLogInfo<<std::endl;
@@ -891,7 +891,13 @@ NvDlaError engine_ast::Edge::registerBuffer()
                 if (cli == clients.begin())//set的顺序似乎是会变化的，和hash有关，所以这个有关系吗？https://stackoverflow.com/questions/26413490/stdunordered-set-insert-get-the-position-where-item-was-inserted
                 {
                     commonTBD = currTBD;
-                    tsd->setTensorBufferDesc(commonTBD);gLogInfo<<" \tfor Node:"<<(*cli)->name()<<" set initial TBD:"<<commonTBD->id()<<" with tsdid: "<<tsd->id()<<" and SFF: "<<tsd->surfaceFormat().c_str()<<std::endl;
+                    tsd->setTensorBufferDesc(commonTBD);gLogInfo<<" \tfrom Node:"<<(*cli)->name()<<" set initial TBD:"<<commonTBD->id()<<" with tsdid: "<<tsd->id()<<" and SFF: "<<tsd->surfaceFormat().c_str()<<
+                    //(void*)commonTBD->address()<<"/"<<
+                    commonTBD->allocated()<<"/"<<
+                    commonTBD->memoryId()<<"/"<<
+                    commonTBD->poolOffset()<<"/"<<
+                    //commonTBD->memoryLoc().v()<<"/"<<
+                    //commonTBD->pool()->location().c_str() <<std::endl;
                 }
                 else
                 {
