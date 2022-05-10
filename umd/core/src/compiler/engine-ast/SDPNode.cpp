@@ -359,7 +359,7 @@ NvU64 engine_ast::SDPNode::suggestSurfaceOffsetInBuffer(surface::TensorSurfaceDe
          */
         if (srcTSD->tensorCategory() == memory::TensorCategoryEnum::STREAM_TENSOR)
         {
-            offset = srcTSD->bufferOffset();gLogInfo<<"\t(found input STREAM_TENSOR)Copy offset from "<<srcTSD->name()<<"to "<< outputEdges()[0]->tensorSurfaceDesc()->name()<<std::endl;
+            offset = srcTSD->bufferOffset();gLogInfo<<"\t(found input STREAM_TENSOR)Copy offset from "<<srcTSD->name()<<" to "<< srcTSD->name()<<std::endl;
         }
         else
         {
@@ -514,8 +514,8 @@ NvDlaError engine_ast::SDPNode::fuseOnTheFlyNodes()
                 // FIXME: add logic to determine sub-engine requirements and then fuse
                 if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
                 {
-                    dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));gLogInfo<<"\tSPD FuseVerticalOps "<<this->name() << " -> with (downstream) "<<(*cni)->name()<<std::endl;
-                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tSPD FuseVerticalOps with (upstream) "<<this->name() << " <- "<<(*cni)->name()<<std::endl;
+                    dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));//gLogInfo<<"\tSPD FuseVerticalOps "<<this->name() << " -> with (downstream) "<<(*cni)->name()<<std::endl;
+                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tAttach dependence(Vertical SPDOps) from "<< this->name() << " with(next) " << (*cni)->name()<<std::endl;
                 }
             }
         }
@@ -629,7 +629,7 @@ engine_ast::Node* engine_ast::SDPNode::tryToMergeWithActOp(SDPNode* SDPActOp)
         // cannot combine any other activation op than ReLU
         goto fail;
     }
-
+    //Relu只能在SPD的X1模块中？
     switch(engineOpType().v()) {
         case EngineOpTypeEnum::SDP_BIAS:
             NodeFactory::nodeCast<SDPBiasOpNode*>(this)->params(/*batch_id*/0).x1Params().setActType(
@@ -660,7 +660,7 @@ engine_ast::Node* engine_ast::SDPNode::tryToMergeWithActOp(SDPNode* SDPActOp)
     }
 
     removableNode = SDPActOp;
-
+    gLogInfo<<"fuse act type to previous SPD OP X1 sub-engine and remove act node"<<endl;
 fail:
     return removableNode;
 }

@@ -194,12 +194,12 @@ NvU32 engine_ast::SDPBatchNormOpNode::factorsPerEntity
         do {
             tempFactors = powf(processedValue, 1/nthRoot);
             nthRoot++;
-            numFactors++;
+            numFactors++;//如果需要缩放，那么BN层还需要新的参数
         } while(tempFactors > std::numeric_limits<CP>::max());
 
         if ( debugFactorization() )
         {
-            gLogInfo <<"\t" <<processedValue << " > " << float(std::numeric_limits<CP>::max())
+            gLogInfo <<"\t" <<processedValue << "(1/sqrtf(VARIANCE)) > " << float(std::numeric_limits<CP>::max())
                      << " Factorized to " << float(tempFactors) << " after taking " << (nthRoot -1) << "th root!! "
                      << " Updating " << rawValue << " to " << tempFactors << endl;
         }
@@ -303,11 +303,11 @@ NvDlaError engine_ast::SDPBatchNormOpNode::processMeanAndVar
             procMeanBlob[cc] = (-1) * rawMeanBlob[cc];
             for (size_t vv = 0; vv < processedVarData.size(); ++vv)
             {
-                MP procVarValue;
+                MP procVarValue;//用于计算后存放factorize后的值
                 procVarBlob = reinterpret_cast<MP*>(const_cast<void*>(processedVarData[vv].values));
 
                 // if no need to factorize, 1st blob should contain the processed data
-                // and subsequent blobs should contain '1'
+                // and subsequent blobs should contain '1'  所有的cc按照最大的factor申请slot，如果用不上后面的就填充1
                 if (factorsPerEntity<MP, CP>(rawVarBlob[cc], VARIANCE_DATA, &procVarValue) == 1)
                 {
                     procVarBlob[cc] = (vv == 0) ? procVarValue : 1;
@@ -560,7 +560,7 @@ NvDlaError engine_ast::SDPBatchNormOpNode::preProcessAuxData()
             for (NvU32 vv = 1; vv < numVarBlobs; ++vv)
             {
                 engine_ast::SDPScaleOpNode* newScaleNode = engine_ast::NodeFactory::newSDPScaleOpNode(NULL, graph());
-                gLogInfo<<"\tnewSDPScaleOpNode node inserted as BN para out of range"<<std::endl;
+                gLogInfo<<"\tnewSDPScaleOpNode node inserted as BN para out of range: "<<newScaleNode->name()<<std::endl;
                 if ( !newScaleNode)
                 {
                     ORIGINATE_ERROR_FAIL(NvDlaError_InsufficientMemory, "Couldn't create adjunct scale op");

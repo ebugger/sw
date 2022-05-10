@@ -217,7 +217,7 @@ class WeightTrns
                     }
                     filterScales.push_back(scale);
                 }
-            }
+            }gLogInfo<<"quantize the weights and set the per_filter scale "<<std::endl;
             return filterScales;
         }
 
@@ -562,6 +562,7 @@ class WeightTrns
                     }
                     pCombinedBlob[cc] = combinedVal;
                 }
+                gLogInfo<<"\tcombine Multiplication(conv+bn) for each channel successful(RAW FP)"<<std::endl;
             }
             else
             {
@@ -631,8 +632,8 @@ class WeightTrns
                         engine_ast::MemoryCollector::getInstance()->freeMemory(pCombinedBlob);
                         goto fail;
                     }
-                    pCombinedBlob[cc] = combinedVal; gLogInfo<<"combine bias and mean of BN successful"<<std::endl;
-                }
+                    pCombinedBlob[cc] = combinedVal; 
+                }gLogInfo<<"\tcombine Addition(bias?) successful(RAW FP) and remove first bias?"<<std::endl;
             }
             else
             {
@@ -690,7 +691,7 @@ class WeightTrns
             {
                 for (int kk = 0; kk < krnlWtDims.n; ++kk)
                 {
-                    IT perChnlScl = pSclData[kk];
+                    IT perChnlScl = pSclData[kk];//channel 缩放
                     NvU64 wtsPerKrnl = krnlWtDims.c * krnlWtDims.h * krnlWtDims.w;
                     for (int cc = 0; cc < (int)wtsPerKrnl; ++cc)
                     {
@@ -702,7 +703,7 @@ class WeightTrns
                         }
                         pCombinedBlob[(kk * wtsPerKrnl) + cc] = combinedVal;
                     }
-                }
+                }gLogInfo<<"scale the weights per channel"<<std::endl;
             }
             else
             {
@@ -2199,8 +2200,8 @@ class WeightTrns
                     ROUNDUP_AND_ALIGN(wDims.wtSize * sizeof(RT), cbufWidth)));
             memset(pDCDestWts, 0, ROUNDUP_AND_ALIGN(wDims.wtSize * sizeof(RT), cbufWidth));
             RT* pDCDestWtsCopy = pDCDestWts;
-            //5层循环从下网上看， 对应atomic,strip, group,chn
-            for ( ; iterWtOp != vWtOps.end(); ++iterWtOp)
+            //5层循环从下往上看， 对应atomic,strip, group,chn
+            for ( ; iterWtOp != vWtOps.end(); ++iterWtOp)//最外层是转换的OP， 每个OP的内部都是按照5层循环来
             {
                 for (ind_cg = iterWtOp->cg.startIndex;   //原始的chn需要拆成多少个包含64个chn的chn groups
                      ind_cg < iterWtOp->cg.limit;
@@ -2213,25 +2214,29 @@ class WeightTrns
                         for (ind_s = iterWtOp->s.startIndex;  //w方向
                              ind_s < iterWtOp->s.limit;
                              ++ind_s)
-                        {
-                            for (ind_k = iterWtOp->kg.startIndex*krnlPerGrp;  //当前krn group中的krn
-                                 ind_k < iterWtOp->kg.startIndex*krnlPerGrp +
+                        {   //multi MAC cluster
+                            for (ind_k = iterWtOp->kg.startIndex*krnlPerGrp;  //当前krn group中的起始krn位置
+                                 ind_k < iterWtOp->kg.startIndex*krnlPerGrp + //当前krn group中的终点krn位置
                                          iterWtOp->k.limit;
                                  ++ind_k)
-                            {
-                                for (ind_c = ind_cg*atomicCSize +    //当前cnh group中的c
+                            {   //single MAC cluster = #of macs
+                                for (ind_c = ind_cg*atomicCSize +    //当前cnh group中的c的起始
                                              iterWtOp->c.startIndex;
-                                     ind_c < (ind_cg*atomicCSize +
+                                     ind_c < (ind_cg*atomicCSize +      //当前cnh group中的c的终点
                                               iterWtOp->c.startIndex +
                                               iterWtOp->c.limit);
                                      ++ind_c)
                                 {
-                                    // We only support:
+                                    // We only support:                     
                                     //  - int8 -> int8 translation
                                     //  - int16-> int16 translation
                                     //  - fp16 -> fp16 translation
                                     //  - fp32 -> fp32 translation (will deprecate soon)
                                     //  - fp32 -> fp16 translation
+                                    //idx = k_idx * R * S * C +
+                                    //          c_idx * R * S +
+                                    //          r_idx * S     +
+                                    //          s_idx
                                     IT value    = pSrcWts[ind_s +
                                                        iterWtOp->s.limit*(ind_r +
                                                        iterWtOp->r.limit*(ind_c +

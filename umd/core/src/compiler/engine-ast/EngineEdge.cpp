@@ -891,13 +891,13 @@ NvDlaError engine_ast::Edge::registerBuffer()
                 if (cli == clients.begin())//set的顺序似乎是会变化的，和hash有关，所以这个有关系吗？https://stackoverflow.com/questions/26413490/stdunordered-set-insert-get-the-position-where-item-was-inserted
                 {
                     commonTBD = currTBD;
-                    tsd->setTensorBufferDesc(commonTBD);gLogInfo<<" \tfrom Node:"<<(*cli)->name()<<" set initial TBD:"<<commonTBD->id()<<" with tsdid: "<<tsd->id()<<" and SFF: "<<tsd->surfaceFormat().c_str()<<
+                    tsd->setTensorBufferDesc(commonTBD);gLogInfo<<" \tfrom Node:"<<(*cli)->name()<<" set initial TBD:"<<commonTBD->id()<<" with tsdid: "<<tsd->id()<<" and SFF: "<<tsd->surfaceFormat().c_str()<<"/"<<
                     //(void*)commonTBD->address()<<"/"<<
                     commonTBD->allocated()<<"/"<<
                     commonTBD->memoryId()<<"/"<<
-                    commonTBD->poolOffset()<<"/"<<
+                    commonTBD->poolOffset()<<"/"<<std::endl;
                     //commonTBD->memoryLoc().v()<<"/"<<
-                    //commonTBD->pool()->location().c_str() <<std::endl;
+                    //commonTBD->pool()->location().c_str() 
                 }
                 else
                 {
@@ -995,11 +995,11 @@ NvDlaError engine_ast::Edge::reserveBuffer()
             tbd->setSize( std::max<NvU64>(existingSize, proposedSize) );
             break;
         case memory::TensorCategoryEnum::EXTERNAL_TENSOR:
-            ASSERT( bindable() );
+            ASSERT( bindable() );//输入
             // adjust buffer size for multiple batches on the bindable tensor
             if ( existingSize )
             {
-                tbd->setSize( std::max<NvU64>(existingSize, proposedSize * numBatches) );
+                tbd->setSize( std::max<NvU64>(existingSize, proposedSize * numBatches) ); //和batch有关
             }
             else
             {

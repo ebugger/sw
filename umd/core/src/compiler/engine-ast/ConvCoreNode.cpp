@@ -758,7 +758,7 @@ NvDlaError engine_ast::ConvCoreNode::quantizeAuxData()
     quantizedWtsBlob.count  = origWtsBlob.count;
 
     params().setRawWeights(quantizedWtsBlob);
-
+    gLogInfo<<"\tQuantize kernel and set filter scale completed"<<std::endl;
 fail:
     return e;
 }
@@ -1123,7 +1123,7 @@ engine_ast::Node* engine_ast::ConvCoreNode::mergeWithSDPOp(SDPNode* nextSDP)
 
     return removableNode;
 }
-
+//CONV+SCALE
 engine_ast::Node* engine_ast::ConvCoreNode::tryToMergeWithScaleOp(SDPNode* SDPSclOp)
 {
     Node* removableNode = NULL;
@@ -1198,7 +1198,7 @@ engine_ast::Node* engine_ast::ConvCoreNode::tryToMergeWithScaleOp(SDPNode* SDPSc
         }
         goto fail;
     }
-
+    gLogInfo<<"Combi conv kernel weights w/ scale "<<endl;
     params().setRawWeights(combinedWtsAndScaleData);
     removableNode = scaleOp;
 
@@ -1339,7 +1339,7 @@ NvDlaError engine_ast::ConvCoreNode::handleLowPrecisionConversions()
         ORIGINATE_ERROR_FAIL(NvDlaError_NotSupported, "Don't support quantization mode: %s\n",
                                 graph()->profile()->quantizationMode().c_str());
     }
-
+    //conv core硬件自动完成内部高精度运算后输出低精度数据？还是留在runtime完成？
     inCvt.setEnable(1);
     inCvt.setScale(1);
     inCvt.setOffset(0);
@@ -1350,7 +1350,7 @@ NvDlaError engine_ast::ConvCoreNode::handleLowPrecisionConversions()
     convCvt.setPraTruncate(0);
 
     params().setConvCoreCVT(convCvt);
-
+    gLogInfo<<"\tset initial PrecisionCVTParams done" <<std::endl;
 fail:
     return e;
 }
@@ -1373,7 +1373,7 @@ NvDlaError engine_ast::ConvCoreNode::translateAuxData()
     computePrecision  = graph()->profile()->computePrecision();
     atomicCSize = graph()->target_config()->atomicCSize();
     atomicKSize = graph()->target_config()->atomicKSize();
-    cbufWidth   = graph()->target_config()->bufEntryWidth();
+    cbufWidth   = graph()->target_config()->bufEntryWidth();//bytes
 
     dataInputEdge = inputEdges()[0];
     auxEdge       = auxEdges()[0];
@@ -1392,7 +1392,7 @@ NvDlaError engine_ast::ConvCoreNode::translateAuxData()
 
         if ( graph()->debugWeights() )
         {
-            gLogInfo << "translating weights for " << id() << " kernel-dims kcrs = " <<
+            gLogInfo << "\ttranslating weights for " << id() << " kernel-dims kcrs = " <<
                                     auxEdge->tensorSurfaceDesc()->dimensions().n << "," <<
                                     auxEdge->tensorSurfaceDesc()->dimensions().c << "," <<
                                     auxEdge->tensorSurfaceDesc()->dimensions().h << "," <<
@@ -1444,7 +1444,7 @@ NvDlaError engine_ast::ConvCoreNode::translateAuxData()
 
         params().setDLAWeights(trnsKrnlWts);
     }
-
+    gLogInfo<<"\tKernel Wt trnaslation complated."<<std::endl;
 
 fail:
     return e;
@@ -1469,7 +1469,7 @@ NvDlaError engine_ast::ConvCoreNode::fuseOnTheFlyNodes()
             if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
             {
                 dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, *cni);
-                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tFuse OnTheFly "<<this->name()<< " with "<<(*cni)->name()<<std::endl;
+                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tAttach dependency(output port) from: "<<this->name()<< " with "<<(*cni)->name()<<std::endl;
             }
         }
     }
@@ -2197,15 +2197,15 @@ fail:
 }
 
 NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
-{
-    NvDlaError e = NvDlaSuccess;
-
-    NvU32 totalDataBanksNeeded = 0;
-    NvU32 totalWtBanksNeeded   = 0;
-    NvU32 minWtBanksNeeded     = 0;
-    NvU32 compWtReservedBank   = 0;
-    NvU32 spareBanks           = 0;
-
+{                                  //              Bank_0      ..... Bank_15
+    NvDlaError e = NvDlaSuccess;   //         ***************          .
+                                   //         *   512b 512b *          .                   
+    NvU32 totalDataBanksNeeded = 0;//         * 0 ---- ---- *          .
+    NvU32 totalWtBanksNeeded   = 0;//         * 1 ---- ---- *          .
+    NvU32 minWtBanksNeeded     = 0;//         *     :    :  *          .
+    NvU32 compWtReservedBank   = 0;//         *     .    .  *          .
+    NvU32 spareBanks           = 0;//         *255 ---- ----*          .
+                                   //         ***************          .
     surface::TensorSurfaceDesc *srcTSD     = graph()->nodeInputTensorSurface(this, 0, supportedInSurfCategories());
     surface::TensorSurfaceDesc *weightTSD  = graph()->nodeInputTensorSurface(this, 0, supportedAuxSurfCategories());
 
@@ -2224,7 +2224,7 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
         gLogInfo << "\ttotal b4d needed " << totalDataBanksNeeded << endl;
         gLogInfo << "\ttotal b4w needed " << totalWtBanksNeeded << endl;
         gLogInfo << "\tmin b4w needed " << minWtBanksNeeded << endl;
-        gLogInfo << "\treserved WMB bank " << compWtReservedBank << endl;
+        gLogInfo << "\treserved WMB bank(for compress) " << compWtReservedBank << endl;
         gLogInfo << "(" << name() << ") ";
     }
 
@@ -2577,7 +2577,7 @@ NvS16 engine_ast::ConvCoreNode::calculateEPS(surface::TensorSurfaceDesc* tsd)
     NvU32 chnl_ext   = 0;
     NvU16 stride_x = params().stride().w;
     NvU16 stride_y = params().stride().h;
-    NvF32 memory_atomic_size = graph()->target_config()->memoryAtomicSize();//KBs each bank?
+    NvF32 memory_atomic_size = graph()->target_config()->memoryAtomicSize();//这个应该是存取的最小的单元。或者读写的最小单元
     NvF32 buf_bank_width     = graph()->target_config()->bufEntryWidth(); //2*512bit of 256 entries in each bank, = 128B
 
     surface::SurfaceCategory sc = tsd->surfaceFormat().category();
@@ -2597,8 +2597,8 @@ NvS16 engine_ast::ConvCoreNode::calculateEPS(surface::TensorSurfaceDesc* tsd)
         case surface::SurfaceCategoryEnum::FEATURE_DATA: {
             switch(params().convMode().v())
             {
-                case ConvolutionModeEnum::CONV_DIRECT: {
-                    NvU16 total_c_atomics = (NvU16)ceil(input_dims.c * bpe / (NvF32)(memory_atomic_size)); //需要多少个chn groups?
+                case ConvolutionModeEnum::CONV_DIRECT: {//数据都是hwc排列(硬件生成的数据就是c方向连续排布的)
+                    NvU16 total_c_atomics = (NvU16)ceil(input_dims.c * bpe / (NvF32)(memory_atomic_size)); //每个channnel的数据需要多少个基本单元
                     NvU16 last_c_atomics  = total_c_atomics  % (NvU16)(buf_bank_width / memory_atomic_size) ;//最后一个chn group在一个entry的的位置[0~3]， 一个entry128B,所以能容纳4个chn group
                     NvU16 int_c_entries   = (total_c_atomics / (NvU16)(buf_bank_width / memory_atomic_size)) * width;//每个c方向需要的饱和的chn group花费的entries数乘上w的数量就是一行需要的entries的数量
                     NvU16 frac_c_entries  = (last_c_atomics == 3) ? width: (NvU16)ceil(last_c_atomics * width / ((NvF32)(buf_bank_width / memory_atomic_size))); 
@@ -2636,7 +2636,7 @@ NvU16 engine_ast::ConvCoreNode::calculateTotalBanksForData(surface::TensorSurfac
     surface::SurfaceCategory sc = tsd->surfaceFormat().category();
     if ( sc.v() == surface::SurfaceCategoryEnum::IMG ||
         (sc.v() == surface::SurfaceCategoryEnum::FEATURE_DATA && params().convMode().v() == ConvolutionModeEnum::CONV_DIRECT))
-    {
+    {//EPS for entries per stride
         b4d = (NvU16)ceil(calculateEPS(tsd) * input_dims.h / (NvF32)(buf_entry_per_bank));
     }
     else if (params().convMode().v() == ConvolutionModeEnum::CONV_WINOGRAD)

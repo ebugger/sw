@@ -227,7 +227,7 @@ fail:
 
 /*
  * 2 adjacent bias ops can be combined into a single op if the combined bias factors
- * don't over/undershoot the compute precision of the pipeline
+ * don't over/undershoot the compute precision of the pipeline 移除下一个bias OP
  */
 engine_ast::Node* engine_ast::SDPBiasOpNode::tryToMergeWithBiasOp(SDPNode* SDPBiasOp)
 {
@@ -368,7 +368,7 @@ engine_ast::Node* engine_ast::SDPBiasOpNode::tryToMergeWithScaleOp(SDPNode* SDPS
         newBNReplaceNode->params().setWinogradParams(params().winogradParams());
 
         /* Step-3: The compiler will eventually remove this bias node */
-        removableNode = this;
+        removableNode = this;gLogInfo<<"Replacing bias-6 with new BN and remove sclae..."<<endl;
     }
 
 fail:
@@ -565,7 +565,7 @@ NvDlaError engine_ast::SDPBiasOpNode::quantizeBiasToInt8
     // set quantized bias and common left shifter for all biases
     params().setRawBiasData(int8BiasBlob);
     params().x1Params().setShiftValue(commonShift);
-
+    gLogInfo<<"(conv+bias phrase 1)Quantize the bias to INT and set right shift in X1 subModule"<<std::endl;
 fail:
     return e;
 }
@@ -598,7 +598,7 @@ NvDlaError engine_ast::SDPBiasOpNode::scaleBiasToInt16
     Weights origBiasBlob = params().rawBiasData();
     Weights int16BiasBlob;
     NvS16* pInt16Bias = (NvS16*)std::malloc(origBiasBlob.count * sizeof(NvS16));
-    NvU32 numBiasData = origBiasBlob.count;//bias的数量
+    NvU32 numBiasData = origBiasBlob.count;//bias的数量也是kernel的数量
 
     if (fusedConv)
     {
@@ -705,13 +705,13 @@ NvDlaError engine_ast::SDPBiasOpNode::scaleBiasToInt16
 
     // set scaled bias
     params().setRawBiasData(int16BiasBlob);
-
+    gLogInfo<<"conv+bias phrase 1: new combined 16BIT bias quant and set X1 sub_engine right shifter completed"<<std::endl;
 fail:
     return e;
 }
 
 /*--------------------Quantize Aux Data-----------------------------*/
-NvDlaError engine_ast::SDPBiasOpNode::quantizeAuxData()
+NvDlaError engine_ast::SDPBiasOpNode::quantizeAuxData() //conv+bias是不能融合的，所以需要量化处理
 {
     NvDlaError e = NvDlaSuccess;
 
@@ -754,7 +754,7 @@ NvDlaError engine_ast::SDPBiasOpNode::quantizeAuxData()
      *
      *      O  = I * W + b
      *    QoSo = QiSi * QwSw + b
-     *      Qo = (Qi * Qw + b/Si*Sw) * (Si*Sw/So)
+     *      Qo = (Qi * Qw + b/Si*Sw) * (Si*Sw/So) 先算加法， 因为Qi * Qw是conv engine出来的数据， 是16bit的， 所以这个新的bias必须是16bit的
      *
      * Per-kernel equation looks like:
      *      Qo = (Qi * Qw + b[k]/Si*Sw) * (Si*Sw/So)
@@ -988,7 +988,7 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling  //Qo = (Qi * Q
 
     maxRescaleFactor = *std::max_element(outputRescales.begin(), outputRescales.end());
 
-    // find the shifter value for the max of the rescale factors, since we can use only 1 shifter
+    // find the shifter value for the max of the rescale factors, since we can use only 1 shifter 先找到最大scale对应的shifter
     e = calculateScaleAndShiftFromScalar<NvS16, NvU8>(maxRescaleFactor, &maxRescaleFactorScaleAndShift);
     if (e != NvDlaSuccess)
     {
@@ -997,7 +997,7 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling  //Qo = (Qi * Q
                                 maxRescaleFactor, name().c_str());
     }
 
-    // pass the common shifter to determine int16 scalars for each rescale factors
+    // pass the common shifter to determine int16 scalars for each rescale factors按照得到的最大scale的shifter对所有scale进行缩放
     e = factorizeScalars<NvS16, NvU8>(outputRescales, &scalesAndShifts, maxRescaleFactorScaleAndShift.second);
     if (e != NvDlaSuccess)
     {
@@ -1036,7 +1036,7 @@ NvDlaError engine_ast::SDPBiasOpNode::performPerChannelRescaling  //Qo = (Qi * Q
 
     outCvt.setEnable(1);
     outCvt.setOffset(0);
-    outCvt.setScale(1); //rescale/requantize重量化
+    outCvt.setScale(1); //conv+bias融合后新的scale，需要x1采用MUL计算
     outCvt.setTruncate(0);
 
     // fixme: move the m_truncate to sdpengine params
@@ -1144,7 +1144,7 @@ NvDlaError engine_ast::SDPBiasOpNode::handleLowPrecisionConversions()
     }
 
     params().setOutCVT(outCvt);
-
+    gLogInfo<<"\tConv+bias phrase 2: rescale the (FP)bias to INT16 and set the only shifter/Truncate and update outCVT "<<std::endl;
 fail:
     return e;
 }
@@ -1172,12 +1172,12 @@ NvDlaError engine_ast::SDPBiasOpNode::translateAuxData()
 
         if (srcPrecision == surface::SurfacePrecisionEnum::NVDLA_PRECISION_INT8)
         {
-            channelsPerGroup = graph()->target_config()->atomicKSize();
+            channelsPerGroup = graph()->target_config()->atomicKSize(); //指output channels
         }
 
         if ( graph()->debugWeights() )
         {
-            gLogInfo << "translating weights for " << this->id() << " bias-dims kcrs = " <<
+            gLogInfo << "\ttranslating weights for " << this->id() << " bias-dims kcrs = " <<
                     auxEdge->tensorSurfaceDesc()->dimensions().n << "," <<
                     auxEdge->tensorSurfaceDesc()->dimensions().c << "," <<
                     auxEdge->tensorSurfaceDesc()->dimensions().h << "," <<
@@ -1201,7 +1201,7 @@ NvDlaError engine_ast::SDPBiasOpNode::translateAuxData()
             ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "bias dims dont match bias size");
         }
 
-        if (params().x1Params().isINT8Rescaling())
+        if (params().x1Params().isINT8Rescaling()) //在前面handle low precision的bias prahse2的时候设置了
         {
             // interlay bias data with rescale factors
             Weights rawRescaleData = rescaleData();
@@ -1242,7 +1242,7 @@ NvDlaError engine_ast::SDPBiasOpNode::translateAuxData()
 
         params().setDLABiasData(trnsBiasData);
     }
-
+    gLogInfo<<"Bias Wt trnaslation(interlay bias(from prahse1) and scaled(from prahse2) data each other) completed"<<std::endl;
 fail:
     return e;
 }

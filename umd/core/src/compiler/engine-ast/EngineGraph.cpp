@@ -1243,7 +1243,7 @@ NvDlaError engine_ast::Graph::mergeActivationOperations()
             if ( debugMathOptz() )
             {
                 gLogInfo << std::endl;
-                gLogInfo << "Try Merging(Conv+SPD): " << currNode->name() << " & " << nextSDP->name() << std::endl;
+                gLogInfo << "Try Merging(Conv+SPD || SPD+SPD): " << currNode->name() << " & " << nextSDP->name() << std::endl;
             }
 
             removeNode = currNode->mergeWithSDPOp(nextSDP);
@@ -1281,7 +1281,7 @@ NvDlaError engine_ast::Graph::mergeActivationOperations()
                                                             removeSDPSinkNodes.end(),
                                                             match_next_sdp);
                     if (dni != removeSDPSinkNodes.end())
-                    {
+                    {   //把移除掉的OP的属性继承给移除的下一个同类型的Node
                         SDPNode* removeSDP = NodeFactory::nodeCast<SDPNode*>(removeNode);
                         SDPNode* removeSDPSinkSDP = NodeFactory::nodeCast<SDPNode*>(*dni);
                         removeSDPSinkSDP->params().setConvMode(removeSDP->params().convMode());
@@ -1305,13 +1305,13 @@ NvDlaError engine_ast::Graph::mergeActivationOperations()
                     iod = (removeNode == currNode) ? IODirectionEnum::OUTPUT : IODirectionEnum::INPUT;
                 }
 
-                PROPAGATE_ERROR_FAIL( removeNodeFromAST(removeNode, iod) );
-                break;
+                PROPAGATE_ERROR_FAIL( removeNodeFromAST(removeNode, iod) ); //移除的动作是在graph的实例中移除set，和dependency/ordering 无关，所有后面还需要refreshGraphState
+                break;//注意是每次有融合后直接跳出循环， 然后接下来会重新整理node，再开始融合
             }
         }
 
         // if the last pass through all nodes didn't change the AST anymore,
-        // that means all optimizations are applied; no more scope left
+        // that means all optimizations are applied; no more scope left当前面没有融合， 那么此时ni应该指向最后的元素，所以此时表示没有可融合的算子了。
         if ( ni == allNodes.end() )
         {
             maxOptimized = true;
@@ -1320,7 +1320,7 @@ NvDlaError engine_ast::Graph::mergeActivationOperations()
         {
             // rinse and repeat on newly ordered nodes;
             // starting from the node prior to the recently operated one
-            allNodes = orderedNodes();
+            allNodes = orderedNodes(); //重刷最外围的while的循环中的条件
             startNodeIter = std::find(allNodes.begin(), allNodes.end(), prevNode);
             if (startNodeIter == allNodes.end())
             {
@@ -1495,7 +1495,7 @@ NvDlaError engine_ast::Graph::handleLowPrecisionConversions()
     NvDlaError e = NvDlaSuccess;
     NodeSequence allNodes = orderedNodes();
     for (NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni)
-    {
+    {   gLogInfo<<"handleLowPrecisionConversions for node "<<(*ni)->name()<<std::endl;
         PROPAGATE_ERROR_FAIL((*ni)->handleLowPrecisionConversions());
     }
 
@@ -1513,7 +1513,7 @@ NvDlaError engine_ast::Graph::fuseOnTheFlyNodes()
     NvDlaError e = NvDlaSuccess;
     NodeSequence allNodes = orderedNodes();
     for (NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni)
-    {
+    {   gLogInfo<<"processing fuse OnTheFly for node: "<< (*ni)->name()<<std::endl;
         PROPAGATE_ERROR_FAIL((*ni)->fuseOnTheFlyNodes());
     }
 
@@ -1656,8 +1656,9 @@ NvDlaError engine_ast::Graph::translateAuxData(/*some test point criterion */)
     {
         engine_ast::Node* curr_node = *ni;
         EngineOpType eng_op_type = curr_node->engineOpType();
+        gLogInfo<<"translateAuxData for node:"<<(*ni)->name()<<std::endl;
         switch(eng_op_type.v())
-        {
+        {   
             case EngineOpTypeEnum::CONVOLUTION_CONV:
             case EngineOpTypeEnum::CONVOLUTION_FC:
             case EngineOpTypeEnum::CONVOLUTION_DECONV:
@@ -1688,7 +1689,7 @@ NvDlaError engine_ast::Graph::reserveAllBuffers()
 
     // update the size requirements of each registered TBD
     for (EdgeSequence::const_iterator ei = allEdges.begin(); ei != allEdges.end(); ++ei)
-    {
+    {   gLogInfo<<"Reserve Buff(update tbd) for node: "<<(*ei)->originalTensor()->getName() << " based on tensorCategor in tsd"<<std::endl;
         PROPAGATE_ERROR_FAIL((*ei)->reserveBuffer());
     }
 

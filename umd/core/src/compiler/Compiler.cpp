@@ -504,20 +504,25 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: registerBuffers");
-    }   PROPAGATE_ERROR_FAIL( dump_eng.visitElems( g.back()->scoredOrdering()) );
+    }
+    //engine_ast::Graph::printGraph(g.back(), true, "engine_ast::generateGraph");  
     gLogInfo<<"--------------------PASS: register Buffers complete---------------" << std::endl;
     
     g.push_back( preProcessAuxData(g.back()) );
     if ( !g.back() )
     {
-        PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compulation phase: preProcessAuxData");
-    }  gLogInfo<<"-----PASS: preProcessAuxData(cvt SUB/DIV to ADD/MUL ops and Quantize/transform layout for IMG input layer weights and contrain BN none-repst value-completed--)" << std::endl;
+        PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compulation phase: preProcessAuxData");      
+    }
+    engine_ast::Graph::printGraph(g.back(), true, "preProcessAuxData");
+    gLogInfo<<"-----PASS: preProcessAuxData(cvt SUB/DIV to ADD/MUL ops and Quantize/transform layout for IMG input layer weights and constrain BN none-repst value completed--)" << std::endl;
     
     g.push_back( mergeActivationOperations(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: mergeActivationOperations");
-    } gLogInfo<<"----------------PASS: Fuse ops(Conv+BN/unit scale/bias+scale->bn completed----------------------)" << std::endl;
+    }
+    engine_ast::Graph::printGraph(g.back(), true, "mergeActivationOperations");
+    gLogInfo<<"----------------PASS: Fuse ops(conv+spd || spd + spd) completed----------------------)" << std::endl;
     
     g.push_back( updateScalingFactors(g.back()) );
     if ( !g.back() )
@@ -529,32 +534,33 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: quantizeAuxData");
-    } gLogInfo<<"-----------------PASS: Quantize all Aux Data(including fuse conv+bias(first phrase), etc... completed----------------)" << std::endl;
+    } gLogInfo<<"-----------------PASS: Quantize all Aux Data(including (MAth)fuse conv+bias(first phrase), etc... completed----------------)" << std::endl;
     
     g.push_back( fuseOnTheFlyNodes(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseOnTheFlyNodes");
-    } gLogInfo<<"---------------PASS: Fuse conv_engine(as there's no mem write port) with SPD engine, adjcent spd ops included completed--------" << std::endl;
+    }   engine_ast::Graph::printGraph(g.back(), true, "fuseOnTheFlyNodes");
+    gLogInfo<<"---------------PASS: Fuse conv_engine(as there's no mem write port) with SPD engine, adjcent spd ops included completed--------" << std::endl;
     
     g.push_back( handleLowPrecisionConversions(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: handleLowPrecisionConversions completed ------------------------");
-    }gLogInfo<<"---------------PASS: Quantize including fuse conv+bias(second phrase), etc...)" << std::endl;
+    }gLogInfo<<"---------------PASS: Quantize including fuse conv+bias(second phrase), update CVT" << std::endl;
     
     g.push_back( translateAuxData(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: translateAuxData");
-    }gLogInfo<<"------------------PASS: transform the layout for all Aux Data.. completed ------------------------------------" << std::endl;
+    }gLogInfo<<"------------------PASS: transform the layout for all Aux Data(conv/bias weights).. completed ------------------------------------" << std::endl;
 
     g.push_back( reserveBuffers(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: reserveBuffers");
     }
-
+    gLogInfo<<"------------------PASS: reserveBuffers(update tbd based on tensor cate in tsd) completed ------------------------------------" << std::endl;
     // gLogInfo<<"PASS: group none-intercepted ops as supernode/nestedGraph(conv+spd).." << std::endl;
     // g.push_back( groupAtomicOperations(g.back()) );
     // if ( !g.back() )

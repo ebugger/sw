@@ -237,7 +237,7 @@ public: // internally facing
             m_canWinograd(false),
             m_CONVWeightBanksAllotted(8),
             m_CONVDataBanksAllotted(8),
-            m_canSDPPDPOnFly(false),
+            m_canSDPPDPOnFly(true),
             m_canSDPMergeMathOps(false),
             m_canSDPFuseSubEngineOps(false),
             m_canSDPBustNOPs(false),

@@ -496,7 +496,7 @@ protected:
     SDPALUType m_alu_type;
     SDPOpType  m_op_type;
     SDPActType m_act_type;
-    NvU8       m_truncate; //bias和卷积融合后的缩放系数中的移位， 不包含放大
+    NvU8       m_truncate; //bias和卷积融合后的缩放系数中的截断，
     NvU8       m_shift_value;
     NvS16      m_alu_operand;
     NvS16      m_mul_operand;
@@ -2182,7 +2182,7 @@ public:
 protected:
     MultiBatchState < SDPEngineParams > *m_mb_engine_params;
     bool m_isUnitScale;
-    Weights m_rescaleData; //融合的部分反量化系数(乘法用的)，不包含移位
+    Weights m_rescaleData; //conv+bias后的缩放系数中的新值
 };
 
 // activation op in SDP engine

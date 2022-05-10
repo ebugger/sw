@@ -221,13 +221,13 @@ NvU16 engine_ast::PDPNode::calculateMaxWidth
 {
     NvU16 pdpMaxFlyingWidth   = 0;
 
-    const NvU32 PDP_BUF_SIZE  = (7 * 1024);
+    const NvU32 PDP_BUF_SIZE  = (7 * 1024);//bytes
     const NvU16 rtlOverlapLines[9] = {1, 1, 2, 4, 4, 8, 8, 8, 8};
 
     NvU16 logicalOverlapLines = (NvU16) ceil(float(poolingKernelHeight)/float(poolingStrideY));
     NvU32 atom_k_size         = graph()->target_config()->atomicKSize();
     NvU16 kernelPerGroup      = pdpPrecision.v() == surface::SurfacePrecisionEnum::NVDLA_PRECISION_INT8 ? atom_k_size : atom_k_size / 2;
-    NvU16 bitsPerElement      = pdpPrecision.v() == surface::SurfacePrecisionEnum::NVDLA_PRECISION_INT8 ? 14 : 28;
+    NvU16 bitsPerElement      = pdpPrecision.v() == surface::SurfacePrecisionEnum::NVDLA_PRECISION_INT8 ? 14 : 28; //why?
 
     pdpMaxFlyingWidth = (PDP_BUF_SIZE * 8) / (rtlOverlapLines[logicalOverlapLines] * kernelPerGroup * bitsPerElement);
 
@@ -325,7 +325,7 @@ NvDlaError engine_ast::PDPNode::fuseOnTheFlyNodes()
 
             if ( debugFusion() )
             {
-                gLogInfo << "(" << name() << ") Fusing with " << upstreamNode->name() << endl;
+                gLogInfo << "(" << name() << ") Fusing with(up)" << upstreamNode->name() << endl;
             }
         }
     }

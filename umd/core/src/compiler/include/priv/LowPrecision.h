@@ -208,7 +208,7 @@ fail:
 
 /**
  * All scalar values (S_fp) can be represented as n * (2 ^ -m) if within range
- *
+ *内部是64bit实现
  * S_fp = n_i16 * (2 ^ -m), such that
  *          m = 15 - b',
  *      n_i16 = INT16(S_fp * (2 ^ (15 - b')))
@@ -259,14 +259,14 @@ NvDlaError scaleAndShiftFromScalarImpl2
         }
 
         // Update truncateFactor (powerOfTwo) and scale based on numBits
-        powerOfTwo = powerOfTwo != 0 ? powerOfTwo : 15 - numBits;
+        powerOfTwo = powerOfTwo != 0 ? powerOfTwo : 15 - numBits; //powerOfTwo不为0 的时候是之前scale按照最大值求得的shifter，所以后面所有的scale都按照这个进行缩放
 
         if (powerOfTwo > 31 && powerOfTwo <= 63)
         {
             /* Warn user on high truncate value */
             REPORT_ERROR(NvDlaError_BadParameter, "Truncate too high: %d\n", powerOfTwo);
         }
-        else if (powerOfTwo >= 64)
+        else if (powerOfTwo >= 64)  //内部是64bit实现
         {
             /* Error out as impossible to program */
             ORIGINATE_ERROR_FAIL(NvDlaError_BadValue,
