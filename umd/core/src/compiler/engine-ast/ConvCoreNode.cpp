@@ -1469,7 +1469,7 @@ NvDlaError engine_ast::ConvCoreNode::fuseOnTheFlyNodes()
             if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
             {
                 dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, *cni);
-                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tAttach dependency(output port) from: "<<this->name()<< " with "<<(*cni)->name()<<std::endl;
+                (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this);gLogInfo<<"\tSet dependency(fused conv+spd): "<<this->name()<< " <-> "<<(*cni)->name()<<std::endl;
             }
         }
     }
@@ -1511,7 +1511,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
     NvU32 outputHeightProcessed = 0;
     NvU32 wtBanksReserved = graph()->target_config()->bufBankAllotted() - avlbDataBanks;
     surface::SurfaceCategory srcSC = srcTSD->surfaceFormat().category();
-
+    //计算得到一行的数据(chn优先连续排布)所需要的entry个数
     entriesPerSlice       = calculateEPS(srcTSD);
 
     totalCBuffEntriesAvlb = avlbDataBanks * (graph()->target_config()->bufEntriesPerBank());
@@ -1592,7 +1592,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
         } while (!isMinInPHSatisfied);
     }
     else
-    {   //按照能用的buffer决定切分的高度，只能切分三次，每次的切分高度都相同？
+    {   //按照能用的buffer决定切分的高度
         srcHeights[FIRST_PARTIAL_H_SEG]        = (NvU32)floor(avlbCBuffEntries[FIRST_PARTIAL_H_SEG] / entriesPerSlice);
         srcHeights[INTERMEDIATE_PARTIAL_H_SEG] = (NvU32)floor(avlbCBuffEntries[INTERMEDIATE_PARTIAL_H_SEG] / entriesPerSlice);
         srcHeights[LAST_PARTIAL_H_SEG]         = (NvU32)floor(avlbCBuffEntries[LAST_PARTIAL_H_SEG] / entriesPerSlice);  // not used anywhere
@@ -1687,7 +1687,7 @@ NvDlaError engine_ast::ConvCoreNode::determineSplitDataRatios(NvU16& avlbDataBan
     else
     {
         NvU32 opSlider = 0;
-        ConvCoreNode::SplitDataInfo firstPH;
+        ConvCoreNode::SplitDataInfo firstPH; //bottomPadding=0
         firstPH.topSliceID       = 0;
         firstPH.bottomSliceID    = srcHeights[FIRST_PARTIAL_H_SEG] - 1;
         firstPH.numOverlapSlices = 0;
@@ -1875,7 +1875,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
 
 
     engine_ast::ConvCoreNode* origConvNode      = this;
-    engine_ast::SDPNode*      origFusedSDPNode  = engine_ast::NodeFactory::nodeCast<SDPNode*>(dependencyParams().fusedNode(engine_ast::IODirectionEnum::OUTPUT));
+    engine_ast::SDPNode*      origFusedSDPNode  = engine_ast::NodeFactory::nodeCast<SDPNode*>(dependencyParams().fusedNode(engine_ast::IODirectionEnum::OUTPUT));//在fuse的pass里面设置完成
     bool fusedSDPHasAuxData = false;
 
     if (!origFusedSDPNode ||
@@ -1968,7 +1968,7 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
     /* delegate orig input edge to conv node and reattach to swSplit node and
      * delegate orig output edge from SDP node and reattach to swConcat node
      */
-    graph()->replaceEdgeNodes(origInputEdge, ast::EdgeSideEnum::SECOND, origConvNode, swSplitNode);//把conv的输入edge，和conv相互断开后，和split相互接起来
+    graph()->replaceEdgeNodes(origInputEdge, ast::EdgeSideEnum::SECOND, origConvNode, swSplitNode);//把conv的输入edge，和conv相互断开后，和split相互接起来.edge的SECOND方向是输出，也就是连接的consumer node
     graph()->replaceEdgeNodes(origOutputEdge, ast::EdgeSideEnum::FIRST, origFusedSDPNode, swConcatNode);//把spd的输出edge，和spd相互断开后，和concat相互接起来
 
     splitConvNodes.push_back(origConvNode);
@@ -2012,8 +2012,8 @@ NvDlaError engine_ast::ConvCoreNode::splitData(NvU16 avlbDataBanks)
     }
 
     origConvNode->setSplitDataInfo(splitChunks[0]);
-    origConvNode->params().setRetainSlices(splitChunks[0].numRetainSlices);
 
+    origConvNode->params().setRetainSlices(splitChunks[0].numRetainSlices);
     ASSERT(origConvNode->params().weightBanksAllotted() == splitChunks[0].wtBanks);
     ASSERT(splitChunks[0].dataBanks == avlbDataBanks);
 
@@ -2212,7 +2212,7 @@ NvDlaError engine_ast::ConvCoreNode::splitNodesInternal()
     bool weight_compression = graph()->profile()->canCompressWeights() && graph()->target_config()->isCompressWeightsCapable();
     NvU32 totalCbuffBanks = graph()->target_config()->bufBankAllotted();
 
-    totalDataBanksNeeded = calculateTotalBanksForData(srcTSD);
+    totalDataBanksNeeded = calculateTotalBanksForData(srcTSD);//数据是hwc排布， 所以先根据wc的存储需要多少entry(entry里面基本的存储大小有规定)， 然后再根据h得到总的entry，从而得到需要的bank
     totalWtBanksNeeded   = calculateTotalBanksForWeight(weightTSD);
     minWtBanksNeeded     = calculateMinBanksForWeight(weightTSD);
     // If weights are compressed, WMB surface needs 1 bank (Bank-15)
@@ -2598,9 +2598,14 @@ NvS16 engine_ast::ConvCoreNode::calculateEPS(surface::TensorSurfaceDesc* tsd)
             switch(params().convMode().v())
             {
                 case ConvolutionModeEnum::CONV_DIRECT: {//数据都是hwc排列(硬件生成的数据就是c方向连续排布的)
-                    NvU16 total_c_atomics = (NvU16)ceil(input_dims.c * bpe / (NvF32)(memory_atomic_size)); //每个channnel的数据需要多少个基本单元
-                    NvU16 last_c_atomics  = total_c_atomics  % (NvU16)(buf_bank_width / memory_atomic_size) ;//最后一个chn group在一个entry的的位置[0~3]， 一个entry128B,所以能容纳4个chn group
-                    NvU16 int_c_entries   = (total_c_atomics / (NvU16)(buf_bank_width / memory_atomic_size)) * width;//每个c方向需要的饱和的chn group花费的entries数乘上w的数量就是一行需要的entries的数量
+                    //每个channnel的数据需要多少个基本单元
+                    NvU16 total_c_atomics = (NvU16)ceil(input_dims.c * bpe / (NvF32)(memory_atomic_size));
+                    //一个entry128B,所以能容纳4个基本单元，channel的末尾数据占据的最后一个单元在一个entry的index的位置 
+                    NvU16 last_c_atomics  = total_c_atomics  % (NvU16)(buf_bank_width / memory_atomic_size) ;
+                    //每个c方向的数据，扫过一行w方向的总数据，需要多少个完整的entry来存储
+                    NvU16 int_c_entries   = (total_c_atomics / (NvU16)(buf_bank_width / memory_atomic_size)) * width;
+                    //
+                    //就是的到能容纳整个w方向的channel的所有数据需要的entry数目
                     NvU16 frac_c_entries  = (last_c_atomics == 3) ? width: (NvU16)ceil(last_c_atomics * width / ((NvF32)(buf_bank_width / memory_atomic_size))); 
                     eps = int_c_entries + frac_c_entries;
                 }; break;

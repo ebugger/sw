@@ -245,7 +245,7 @@ public: // internally facing
             m_useCVSRAMAllocate(false),
             m_useMemPool(false),
             m_useReusePooledMemory(false),
-            m_copyOutDebugSurfaces(false),
+            m_copyOutDebugSurfaces(true),
             m_useGreedyEviction(false),
             m_globalDRAMSize(1LLU << 29),
             m_localDRAMSize(1LLU << 30),

@@ -573,13 +573,14 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: splitNodes");
-    } gLogInfo<<"------------------------PASS: Split/Tile conv node based on the CBuffer..completed --------------------------" << std::endl;
+    }   engine_ast::Graph::printGraph(g.back(), true, "splitNodes"); 
+    gLogInfo<<"------------------------PASS: Split/Tile conv node based on the CBuffer..completed --------------------------" << std::endl;
     
     g.push_back( fuseSubEngineOps(g.back()) );
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseSubEngineOps");
-    } gLogInfo<<"-----------------------PASS: fuse SPD nodes(fuse elt with one of its source)..completed ---------------------" << std::endl;
+    } gLogInfo<<"-----------------------PASS: fuse SPD nodes(fuse elt with one of its source) to SPD super(X1+x2 engine)..completed ---------------------" << std::endl;
 
     g.push_back( boundGraph(g.back()) ); //没用？
     if ( !g.back() )
@@ -622,7 +623,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
         {
             PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: enableCopyOutDebugSurfaces");
         }
-
+        engine_ast::Graph::printGraph(g.back(), true, "copyOutDebugSurfaces"); 
         if ( dumpPreCopyOutGraph )
         {
             dump_eng.setGraphId("engine_2");
@@ -630,7 +631,7 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
             PROPAGATE_ERROR_FAIL( dump_eng.visitElems( g.back()->scoredOrdering()) );
         }
     }
-
+    gLogInfo<<"-----------------------PASS: copyOutDebugSurfaces..completed ---------------------" << std::endl;
     //
     // this is where operation order and memory placement are finalized.
     // make passes until convergence or failure.
@@ -1786,13 +1787,15 @@ engine_ast::Graph *Compiler::generateDependencyParams
     engine_ast::Graph *new_graph = input_graph;
     PROPAGATE_ERROR_FAIL( new_graph->topologicalSort(topological_order) );
 
-    // dependencies are resolved in a flattened graph
-    PROPAGATE_ERROR_FAIL( new_graph->resolveDataDependencies(topological_order) );
-    PROPAGATE_ERROR_FAIL( new_graph->resolveComputeDependencies(topological_order) );
-    PROPAGATE_ERROR_FAIL( new_graph->resolveSoftwareDependencies() );
+    // dependencies are resolved in a flattened graph固件按照统一类的引擎发射指令到对应的硬件，所以同一类的放在一起,注意会添加edge(比如bdma)造成graph dirty
+    PROPAGATE_ERROR_FAIL( new_graph->resolveDataDependencies(topological_order) ); gLogInfo<< "---------resolveDataDependencies completed--------"<<std::endl;
+
+    PROPAGATE_ERROR_FAIL( new_graph->resolveComputeDependencies(topological_order) );gLogInfo<< "---------resolveComputeDependencies completed--------"<<std::endl;
+
+    PROPAGATE_ERROR_FAIL( new_graph->resolveSoftwareDependencies() );gLogInfo<< "---------resolveSoftwareDependencies completed--------"<<std::endl;
 
     // determine DLA/EMU/DLA/etc task boundaries
-    PROPAGATE_ERROR_FAIL( new_graph->determineTaskBoundaries(topological_order) );
+    PROPAGATE_ERROR_FAIL( new_graph->determineTaskBoundaries(topological_order) );gLogInfo<< "---------determineTaskBoundaries completed--------"<<std::endl;
 
     PROPAGATE_ERROR_FAIL( new_graph->annotateNodes(lastUsedAnnId) );
 

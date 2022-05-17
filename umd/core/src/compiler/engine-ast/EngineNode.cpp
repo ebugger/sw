@@ -640,7 +640,7 @@ vector< surface::TensorSurfaceDesc *> engine_ast::Node::outputSurfaces() const
 //
 // search with respect to the edge types given in the 'via's to determine
 // if this node is connected to the 'of' node.
-//
+//  通过指定的edge类型来查找两个节点是否连接或者依赖
 // . nodes never depend upon themselves.
 //
 // . if requiredVia is specified (non-zero sized) then connection paths are
@@ -675,12 +675,12 @@ bool engine_ast::Node::dependsOn(Node *of,
     while ( followNodes.size() && !(done || depends) )
     {
 
-        const Node *followingNode = followNodes.begin()->first; //从栈顶开始
-        bool followingSatisfied   = followNodes.begin()->second; //初始为不满足
+        const Node *followingNode = followNodes.begin()->first; //从栈顶开始，也就是初始的当前节点
+        bool followingSatisfied   = followNodes.begin()->second; //初始为不满足，自己不依赖自己
         EdgeSequence followingEdges;//向上的edge
 
         followNodes.erase(followingNode); //弹出， 出栈
-        followedNodes[followingNode] = followingSatisfied; //更新当前已跟踪节点的满足信息
+        followedNodes[followingNode] = followingSatisfied; //更新当前已跟踪节点(s上一步被弹出的元素)的满足信息
 
         if ( followingNode == of ) //是否找到了目标of
         {
@@ -696,10 +696,10 @@ bool engine_ast::Node::dependsOn(Node *of,
             Edge *testEdge    = followingEdges[fei];//从每一个向上的edge
             EdgeType testType = testEdge->edgeType();
             bool testEdgeSatisfies, satisfied;  //如果allowVia指定了， 那么就通过验证这个edge的type是否是allowvia的一种，如果是的话就继续fllow
-            bool follow = (!allows) || ( find(allowedVia.begin(), allowedVia.end(), testType) != allowedVia.end() );//如果没指定就直接默认是继续fllow的
+            bool follow = (!allows) || ( find(allowedVia.begin(), allowedVia.end(), testType) != allowedVia.end() );//如果没指定就直接默认是继续fallow的
             NodeSequence upstreamNodes;
 
-            if ( !follow )
+            if ( !follow ) //比如通过上面的指定的允许allowdVia没找到
             {
                 continue; // unfollowable path (edge type not allowed)
             }
@@ -723,7 +723,7 @@ bool engine_ast::Node::dependsOn(Node *of,
                 {
                     followNodes[upstreamNode] = satisfied; //如果没跟踪过， 就吧这个节点加入栈，准备继续处理
                 }
-                else//如果跟踪过，且满足跟踪的edge类型条件而且之前状态时不满足
+                else//如果跟踪过，且满足跟踪的edge类型条件而且之前状态是不满足
                 {
                     if ( satisfied && (fun->second == false) )
                     {
@@ -811,24 +811,24 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
                  // || fusedNode->engineType() == next->engineType()
                 )
             {
-                break;
+                break; //如果上述判断成功也就是两个节点有相互依赖， 一般是fusedNode的输出包含在next的输入
             }
             fusedNode = fusedNode->dependencyParams().fusedNode(IODirectionEnum::INPUT);
         }
 
-        if (!fusedNode)
+        if (!fusedNode) //bdma node
         {
             // no fusedNodes connect to currNode
             //      currNode is the head of a new thread
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(previous, next);
             NVDLA_UNUSED(DFSthreadsCompEdge);
-            if ( debugResolveDependencies() )
-            {
-                gLogInfo << "adding compute edge " << DFSthreadsCompEdge->id()
-                        << " from " << (previous)->name() << " -> " << (next)->name() << endl;
+            // if ( debugResolveDependencies() )
+            // {
+            //     gLogInfo << "\tadding compute edge " << DFSthreadsCompEdge->id()
+            //             << " from " << (previous)->name() << " -> " << (next)->name() << endl;
 
-                //printGraph(graph(), true);
-            }
+            //     //printGraph(graph(), true);
+            // }
         }
         else if (fusedNode->engineType() == next->engineType() && !graph()->adjacentNodes(fusedNode,next))
         {   //如果是不相邻的两个同一个硬件的算子，那么他们就需要做内存的解决方案
@@ -836,13 +836,13 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
             //      we need this edge for mem resolve
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(fusedNode, next);
             NVDLA_UNUSED(DFSthreadsCompEdge);
-            if ( debugResolveDependencies() )
-            {
-                gLogInfo << "adding compute edge " << DFSthreadsCompEdge->id()
-                        << " from " << (fusedNode)->name() << " -> " << (next)->name() << endl;
+            // if ( debugResolveDependencies() )
+            // {
+            //     gLogInfo << "\tadding compute edge " << DFSthreadsCompEdge->id()
+            //             << " from " << (fusedNode)->name() << " -> " << (next)->name() << endl;
 
-                //printGraph(graph(), true);
-            }
+            //     //printGraph(graph(), true);
+            // }
             // fusedNodes is connected to currNode
             previous = fusedNode;
         }
@@ -854,40 +854,49 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
 
         if (!fusedNode || (graph()->adjacentNodes(previous,next) && graph()->connectedDataNodes(previous, next)))
         {
-            // if previous is connected to currNode with data edge, or
+            // if previous is connected to currNode with data edge, or如果是通过dataNode相邻的
             // if previous is not connected to currNode but there's no fusedNodes connection either
             //      then there's a computeEdge added
             // need to attach OP_COMPLETED
 
-            if (previous->isSoftwareNode())  //split/concat
+            if (previous->isSoftwareNode())  //split/concat  把软件算子的consumer置空， 把原来软件算子连接的下级算子的producer置空
             {
                 for (size_t et = 0; et < EngineType::num_elements(); ++et) //10
                 {   //感觉初始状态是链接的， 但是这个是软件算子， 所以要和实际硬件断开
                     Node * consumer = previous->dependencyParams(0).consumer(et).node();
                     NvU8 producerType = (previous)->engineType().v();
                     //如果有对应的硬件类型的下节点， 那么吧下节点的对应的硬件类型的上节点设置为NULL
-                    if (consumer) consumer->dependencyParams(0).producer(producerType).setNode(NULL);
-                    previous->dependencyParams(0).consumer(et).setNode(NULL);//直接吧当前节点的下节点设置成NULL
-                }
+                    if (consumer) {
+                        consumer->dependencyParams(0).producer(producerType).setNode(NULL);
+                        gLogInfo<< "\tSet (SW)dependencyParams" << previous->name()<< " <-X-> "<< consumer->name()<<std::endl;
+                    }
+                    previous->dependencyParams(0).consumer(et).setNode(NULL);//直接吧这个软件节点的指定类型的消耗节点设置成NULL，也就是软件算子的所有消耗节点设置为空，也就是断开
+                }gLogInfo<< "\tclear consumer node for (SW)dependencyParams " << previous->name()<<std::endl;
             }
-            if (next->isSoftwareNode())
+            if (next->isSoftwareNode()) //同理断开concumer/producer的关系
             {
                 for (size_t et = 0; et < EngineType::num_elements(); ++et)
                 {
                     Node * producer = next->dependencyParams(0).producer(et).node();
                     NvU8 consumerType = (next)->engineType().v();
 
-                    if (producer) producer->dependencyParams(0).consumer(consumerType).setNode(NULL);
+                    if (producer) {
+                        producer->dependencyParams(0).consumer(consumerType).setNode(NULL);
+                        gLogInfo<< "\tSet (SW)dependencyParams" << producer->name()<< " <-X-> "<< next->name()<<std::endl;
+                    }
                     next->dependencyParams(0).producer(et).setNode(NULL);
-                }
+                }gLogInfo<< "\tclear producer node for (SW)dependencyParams" << next->name()<<std::endl;
             }
-
+            gLogInfo<< "\tSet Data dependency with OP_COMPLETED "<< previous->name()<< " <-> "<< next->name()<<"\t\t"
+                                                                 << (previous)->engineType().c_str()<<" <-> "<<  (next)->engineType().c_str()<<std::endl;
             NvU8 consumerType = (next)->engineType().v();
             NvU8 producerType = (previous)->engineType().v();
             (previous)->dependencyParams(/*batchId*/0).consumer(consumerType).setNode(next);
             (previous)->dependencyParams(/*batchId*/0).consumer(consumerType).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
             (next)->dependencyParams(/*batchId*/0).producer(producerType).setNode(previous);
             (next)->dependencyParams(/*batchId*/0).producer(producerType).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
+        }else {
+            gLogInfo<< "\tnop process" <<std::endl;
         }
 
     }
@@ -956,30 +965,30 @@ NvDlaError engine_ast::Node::resolveComputeDependencies(const NodeSequence &orde
     }
 
     ni = std::find(ordered_nodes.begin(), ordered_nodes.end(), this);
-
+    
     for (nin = (ni == ordered_nodes.end() ? ordered_nodes.end() : ni+1); nin != ordered_nodes.end(); ++nin )
     {
-        Node *other_node = *nin;
+        Node *other_node = *nin;    
         EngineType curr_eng_type = engineType();
         /* Treat a directly connected or distant operation of same engineType as a consumer except for the software nodes. */
         if (other_node->isEngineType(curr_eng_type))
-        {
+        {   gLogInfo<<"["<<name()<<"," <<other_node->name() <<"]"<<std::endl;
             dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setNode(other_node);
             other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setNode(this);
-
+            
             /* If 2 adjacent nodes of the same engine type relay a data tensor between them, then
              * the downstream op should wait until the upstream op is completed otherwise the
              * downstream op could start independently.
              */
             if ( graph()->adjacentNodes(this, other_node))
             {
-                if ( other_node->dependsOn(this, viaCompute, allowAll) )
-                {
+                if ( other_node->dependsOn(this, viaCompute, allowAll) ) //can start independently
+                {   gLogInfo<<"\tSet Compute dependency with OP_PROGRAMMED(independent) "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
                     dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
                     other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
                 }
                 else
-                {
+                {   gLogInfo<<"\tSet Compute dependency with OP_COMPLETED(dependent) "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
                     dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
                     other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
                 }
@@ -992,7 +1001,7 @@ NvDlaError engine_ast::Node::resolveComputeDependencies(const NodeSequence &orde
                  * (ONLY happens when different types of SDP use different sub-engines)
                  * then the consumer can be programmed ASA producer is programmed.
                  * But, it will be waiting on some other node to complete before executing.
-                 */
+                 */gLogInfo<<"\tSet Compute dependency with OP_PROGRAMMED(independent) "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
                 dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
                 other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
             }
@@ -1023,7 +1032,7 @@ NvDlaError engine_ast::Node::resolveSoftwareDependencies()
     {
         goto fail;
     }
-
+    //先得到软件算子的对应的硬件类型的 consumer和producer，也就是前后依赖，注意从拓扑或者order的角度看是按照顺序one by one的
     for (size_t et = 0; et < EngineType::num_elements(); ++et)
     {
         Node* prod = dependencyParams(0).producer(et).node();

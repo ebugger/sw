@@ -1176,7 +1176,7 @@ public:
     std::vector<BindNode> & producers() { return m_producers;   }
 
     Node *fusedNode(IODirection dir) const         { return m_fused_nodes[dir.v()]; }
-    void setFusedNode(IODirection dir, Node *node) { m_fused_nodes[dir.v()] = node; }
+    void setFusedNode(IODirection dir, Node *node) { m_fused_nodes[dir.v()] = node; } //拆分conv的时候或者spd+spd融合的时候(前融后)也会调用
 
     void setAnnotationId(NvS16 id)  { m_annotation_id = id;  }
     NvS16 annotationId() const      { return m_annotation_id; }
@@ -3658,7 +3658,7 @@ protected:
     engine_ast::Graph *m_graph;
     NvS16 m_debugBindId;
 
-    inline bool debugCopyOutDebug() { return false; }
+    inline bool debugCopyOutDebug() { return true; }
 
 };
 

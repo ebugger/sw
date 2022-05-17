@@ -952,7 +952,11 @@ protected:
         gLogInfo << "m_elem_order after sort" << std::endl;
         for ( uint32_t i = 0; i != m_elem_score_order.size(); ++i ) {
             if(m_elem_score_order[i]->first.first) gLogInfo << "N:"<<m_elem_score_order[i]->first.first->name() << "\t\t "<<"sc=[" << m_elem_score_order[i]->second.toString() << "]" << std::endl;
-            else if(m_elem_score_order[i]->first.second) gLogInfo <<"E:"<< m_elem_score_order[i]->first.second->originalTensor()->getName() << "\t\t "<<"sc=[" << m_elem_score_order[i]->second.toString() << "]" << std::endl;
+            else if(m_elem_score_order[i]->first.second) 
+            {
+                std::string c_edge = "Comput Edge";
+                gLogInfo <<"E:"<< (m_elem_score_order[i]->first.second->originalTensor()? m_elem_score_order[i]->first.second->originalTensor()->getName() : c_edge )<< "\t\t "<<"sc=[" << m_elem_score_order[i]->second.toString() << "]" << std::endl;
+            }
         }
 #if 0
         //gLogInfo << "m_node_order" << &m_node_order << std::endl;

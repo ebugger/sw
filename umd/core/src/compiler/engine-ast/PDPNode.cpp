@@ -324,8 +324,8 @@ NvDlaError engine_ast::PDPNode::fuseOnTheFlyNodes()
             upstreamNode->dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, this);
 
             if ( debugFusion() )
-            {
-                gLogInfo << "(" << name() << ") Fusing with(up)" << upstreamNode->name() << endl;
+            {   gLogInfo<<"\tSet dependency(fused pdp): "<<upstreamNode->name()<< " <-> "<<name()<<std::endl;
+                //gLogInfo << "(" << name() << ") Fusing with(up)" << upstreamNode->name() << endl;
             }
         }
     }

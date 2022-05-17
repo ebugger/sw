@@ -515,7 +515,7 @@ NvDlaError engine_ast::SDPNode::fuseOnTheFlyNodes()
                 if ((*cni)->engineType().v() == EngineTypeEnum::SDP)
                 {
                     dependencyParams().setFusedNode(IODirectionEnum::OUTPUT, (*cni));//gLogInfo<<"\tSPD FuseVerticalOps "<<this->name() << " -> with (downstream) "<<(*cni)->name()<<std::endl;
-                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tAttach dependence(Vertical SPDOps) from "<< this->name() << " with(next) " << (*cni)->name()<<std::endl;
+                    (*cni)->dependencyParams().setFusedNode(IODirectionEnum::INPUT, this); gLogInfo<<"\tSet dependency(Vertical SPDOps fuse) "<< this->name() << " <-> " << (*cni)->name()<<std::endl;
                 }
             }
         }

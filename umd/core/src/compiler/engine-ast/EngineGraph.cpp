@@ -406,7 +406,7 @@ bool engine_ast::Graph::connectedDataNodes(engine_ast::Node *upStream, engine_as
     return downStream->dependsOn(upStream, viaData, allowAll);
 }
                                          //ori input        direct          
-void engine_ast::Graph::replaceEdgeNodes(Edge* edge, ast::EdgeSide dir, Node* oldNode, Node* newNode) //以node来看就是把node和他的输入解开所以方向是1
+void engine_ast::Graph::replaceEdgeNodes(Edge* edge, ast::EdgeSide dir, Node* oldNode, Node* newNode) //按照方向替换edge的连接node
 {
     removeEdgeFromNode(edge, dir, oldNode);//把输入edge从node移除
     removeNodeFromEdge(edge, dir, oldNode);//把node从输入edge移除
@@ -637,7 +637,7 @@ engine_ast::Edge *engine_ast::Graph::addComputeEdge(Node *fromNode, Node *toNode
     edge->setId(nextEdgeId());
     edge->setComputeEdge(); //split切分后的两个node用一个新的edge链接
     edge->setOriginalTensor(0); // no tensor
-    gLogInfo<<"\tFork one Computer Edge(w/o ori tensor):" << edge->id()<<" to connect from: "<<fromNode->name()<< " to "<<toNode->name()<<std::endl; 
+    gLogInfo<<"\tFork one Computer Edge(w/o ori tensor):" << edge->id() <<fromNode->name()<< " <-> "<<(toNode?toNode->name():"sibling")<<std::endl; 
     if ( !connectNodesWithEdge(edge, fromNode, toNode) )
     {
         THROW_ERROR(NvDlaError_BadValue, "failed to insert compute edge %s between %s and %s",
@@ -730,7 +730,7 @@ engine_ast::Edge *engine_ast::Graph::addDataEdge(engine_ast::Edge *cloneEdge, No
 void engine_ast::Graph::checkDirty()
 {
     if ( dirty() )
-    {   gLogInfo<<"The aux preproc may add new edge, so refresh the graph and graph state(surf/buff etc.) again...."<<std::endl;
+    {   gLogWarning<<"The aux preproc may add new edge, so refresh the graph and graph state(surf/buff etc.) again...."<<std::endl;
         m_ordering->generate();
         markClean();
     }
@@ -1545,7 +1545,7 @@ NvDlaError engine_ast::Graph::fuseSDPSubEngineOps()
 
     if (debugFuseSubEngineOps())
     {
-        printGraph(this, true, "pree fuseSDPSubEngineOps");
+        //printGraph(this, true, "pre fuseSDPSubEngineOps");
     }
 
     do
@@ -1890,15 +1890,15 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
         }
         while (ei != inEdges.begin());
     }
-
+    gLogInfo<<"Topological order: "<<std::endl;
     while (!S.empty()) {
         Node * currNode = S.top();//保存栈顶元素后
         S.pop(); //把当前的节点弹出栈
         if (visitedNodes.find(currNode) == visitedNodes.end()) //如果当前的节点没有被访问过
         {
-            topological_order.push_back(currNode);//把这个节点加入整体网络拓扑结构中的尾部
+            topological_order.push_back(currNode);//把这个节点加入整体网络拓扑结构中的尾部，这个也是得到的最终的拓扑！！！！！
             visitedNodes.insert(currNode); //然后把节点设置成访问过
-
+            gLogInfo<<" "<< currNode->id()<<"/"<<currNode->name();
            /* Push downstream nodes with compute edges first because data edges take precedence
             * In a convolution split diamond,
             *           (split)
@@ -2006,7 +2006,7 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
         {
             // currNode is already visited, there is a cycle
             ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "Can't resolve a non-acyclic graph ");
-        }
+        }gLogInfo<<std::endl;
     }
 fail:
     return e;
@@ -2018,7 +2018,7 @@ NvDlaError engine_ast::Graph::resolveDataDependencies(const NodeSequence& allNod
     NvDlaError e = NvDlaSuccess;
 
     for (NodeSequence::const_iterator ni = allNodes.begin(), nj = ni+1; nj != allNodes.end(); ni = nj++) //注意begin是首元素， end是末尾元素的下一个空位置
-    {
+    {   gLogInfo<<"["<<(*ni)->name()<<"," <<(*nj)->name() <<"] \t"<<std::endl;
         PROPAGATE_ERROR_FAIL( (*ni)->resolveDataDependencies(*nj) );
     }
 
@@ -2099,18 +2099,18 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
     graphlets().push_back(graphlet);
     taskId = 0;
 
-    for ( NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni )
+     for ( NodeSequence::const_iterator ni = allNodes.begin(); ni != allNodes.end(); ++ni )
     {
         Node *node = *ni;
-
+        //使用Graphlet把cpu分段的graph包装起来
         if ( node->isEMUEngineType() != isEMU )
-        {
+        {   
             graphlet = new Graphlet();
             // start of next graphlet
             graphlets().push_back(graphlet);
             taskId++;
         }
-
+        gLogInfo<<"Graphlet#"<<graphlets().size()<<std::endl;
         node->setTaskId(taskId);
         if (!node->isDLAEngineType() && !node->isEMUEngineType())
         {
@@ -2119,7 +2119,7 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
              * However a multi-op destination engine(s) is still not determined; so
              * keep that around in the graphlet/tasklet
              */
-            node->dependencyParams(/*batchId*/0).setAnnotationId(-1);
+            node->dependencyParams(/*batchId*/0).setAnnotationId(-1);gLogInfo<<"\t reset annotation(-1) for "<< node->name()<<std::endl;
         }
         else
         {
@@ -2132,10 +2132,10 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
         // capture per graphlet, the head_ops for each engine
         if ( NULL == graphlet->opHeads()[node->engineType().v()] )
         {
-            graphlet->opHeads()[node->engineType().v()] = node;
+            graphlet->opHeads()[node->engineType().v()] = node; gLogInfo<<"\t set opHead node: "<< node->name()<<" for type: "<<node->engineType().c_str() <<std::endl;
         }
     }
-
+    gLogInfo<<"graph splited by EMU ops to " << graphlets().size()<<"graphlets"<<std::endl;
     return e;
 }
 
@@ -2294,7 +2294,7 @@ NvDlaError engine_ast::AddCopyOutDebugBDMA::visitNode(engine_ast::Node *treatNod
     NodeSequence consumerNodes;
     NvU32 numBatches = treatNode->graph()->profile()->multiBatchSize();
 
-    if ( treatNode->isEMUEngineType() )
+    if ( treatNode->isEMUEngineType())
     {
         return NvDlaSuccess;
     }
@@ -2315,6 +2315,8 @@ NvDlaError engine_ast::AddCopyOutDebugBDMA::visitNode(engine_ast::Node *treatNod
     dataOutputs = m_graph->downstreamDataEdges(treatNode);
     if ( dataOutputs.size() != 1 )
     {
+        gLogInfo<<treatNode->name()<< " has "<< dataOutputs.size() <<" multi down data edge, bypassed"<<std::endl;
+        return NvDlaSuccess;
         ORIGINATE_ERROR_FAIL(NvDlaError_BadValue, "This shouldn't happen - I am confused!!");
     }
     nodeOutEdge = dataOutputs[0];
@@ -2334,7 +2336,8 @@ NvDlaError engine_ast::AddCopyOutDebugBDMA::visitNode(engine_ast::Node *treatNod
     dbgTensorDims = nodeOutEdge->originalTensor()->getDimensions();
 
     dbgBDMANode = engine_ast::NodeFactory::newSingleBDMANode(m_graph);
-    PROPAGATE_ERROR_FAIL(dbgBDMANode->populateEdgePorts());
+    PROPAGATE_ERROR_FAIL(treatNode->populateEdgePorts());
+    //PROPAGATE_ERROR_FAIL(dbgBDMANode->populateEdgePorts());
 
     dbgBDMAOutEdge = m_graph->addDataEdge((canonical_ast::Edge*)0, dbgBDMANode, 0, nodeOutEdge->originalTensor()); // dangling
 
