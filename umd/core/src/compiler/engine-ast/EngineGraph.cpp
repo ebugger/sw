@@ -635,9 +635,9 @@ engine_ast::Edge *engine_ast::Graph::addComputeEdge(Node *fromNode, Node *toNode
 
     edge->setGraph(this);
     edge->setId(nextEdgeId());
-    edge->setComputeEdge(); //split切分后的两个node用一个新的edge链接
+    edge->setComputeEdge(); //split切分后的两个node用一个新的edge链接，目的应该是为计算依赖做表达
     edge->setOriginalTensor(0); // no tensor
-    gLogInfo<<"\tFork one Computer Edge(w/o ori tensor):" << edge->id() <<fromNode->name()<< " <-> "<<(toNode?toNode->name():"sibling")<<std::endl; 
+    gLogInfo<<"\tFork one Computer Edge(w/o ori tensor):" << edge->id() << " attach: "<<fromNode->name()<< " <-> "<<(toNode?toNode->name():"sibling")<<std::endl; 
     if ( !connectNodesWithEdge(edge, fromNode, toNode) )
     {
         THROW_ERROR(NvDlaError_BadValue, "failed to insert compute edge %s between %s and %s",
@@ -918,7 +918,7 @@ void engine_ast::Graph::printGraph(engine_ast::Graph* g, bool nested, std::strin
     }
 }
 
-static void printDependencyGraph(engine_ast::Graph* g)
+static void printDependencyGraph(engine_ast::Graph* g)  //同一engine type的所有op都是放在一起的，所以也会存在依赖关系
 {
     using namespace engine_ast;
     for (vector< Graph::Graphlet * >::iterator gli = g->graphlets().begin(); gli != g->graphlets().end(); ++gli)
@@ -928,14 +928,15 @@ static void printDependencyGraph(engine_ast::Graph* g)
             for (NvU32 nn = 0; nn < g->profile()->multiBatchSize(); ++nn)
             {
                 gLogInfo << "annid=" << (*ni)->dependencyParams(nn).annotationId()
-                         << " node=" << (*ni)->name() << ".B" << nn
+                         << " node=" << (*ni)->name() << ".Batch#" << nn
                          << " deps=" << (*ni)->dependencyParams(nn).getDependencyCount() << endl;
                 gLogInfo << "\tproducer: [";
                 for (size_t ii = 0; ii < EngineType::num_elements(); ++ii)
                 {
                     if ( (*ni)->dependencyParams(nn).producer(ii).nodeAnnId() != -1 )
                     {
-                        gLogInfo << (*ni)->dependencyParams(nn).producer(ii).node()->name()
+                        gLogInfo <<(*ni)->dependencyParams(nn).producer(ii).node()->engineType().c_str()<<":"
+                                 << (*ni)->dependencyParams(nn).producer(ii).node()->name()
                                  << "(annId:" << (*ni)->dependencyParams(nn).producer(ii).nodeAnnId() << ")"
                                  << ":" << (*ni)->dependencyParams(nn).producer(ii).opEvent().c_str() << ", ";
                     }
@@ -949,7 +950,8 @@ static void printDependencyGraph(engine_ast::Graph* g)
                 {
                     if ( (*ni)->dependencyParams(nn).consumer(ii).nodeAnnId() != -1 )
                     {
-                        gLogInfo << (*ni)->dependencyParams(nn).consumer(ii).node()->name()
+                        gLogInfo <<(*ni)->dependencyParams(nn).consumer(ii).node()->engineType().c_str()<<":"
+                                 << (*ni)->dependencyParams(nn).consumer(ii).node()->name()
                                  << "(annId:" << (*ni)->dependencyParams(nn).consumer(ii).nodeAnnId() << ")"
                                  << ":" << (*ni)->dependencyParams(nn).consumer(ii).opEvent().c_str() << ", ";
                     }
@@ -961,7 +963,7 @@ static void printDependencyGraph(engine_ast::Graph* g)
                 gLogInfo << "]" << endl;
             }
         }
-    }
+    }gLogInfo << "--------------printDependencyGraph done---------------" << std::endl;
 }
 
 /*----------------------Surface Descriptor Registration------------------*/
@@ -2110,7 +2112,7 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
             graphlets().push_back(graphlet);
             taskId++;
         }
-        gLogInfo<<"Graphlet#"<<graphlets().size()<<std::endl;
+
         node->setTaskId(taskId);
         if (!node->isDLAEngineType() && !node->isEMUEngineType())
         {
@@ -2119,7 +2121,7 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
              * However a multi-op destination engine(s) is still not determined; so
              * keep that around in the graphlet/tasklet
              */
-            node->dependencyParams(/*batchId*/0).setAnnotationId(-1);gLogInfo<<"\t reset annotation(-1) for "<< node->name()<<std::endl;
+            node->dependencyParams(/*batchId*/0).setAnnotationId(-1);gLogInfo<<"\tGraphlet#"<<graphlets().size()<<" reset annotation(-1) for "<< node->name()<<std::endl;
         }
         else
         {
@@ -2132,10 +2134,10 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
         // capture per graphlet, the head_ops for each engine
         if ( NULL == graphlet->opHeads()[node->engineType().v()] )
         {
-            graphlet->opHeads()[node->engineType().v()] = node; gLogInfo<<"\t set opHead node: "<< node->name()<<" for type: "<<node->engineType().c_str() <<std::endl;
+            graphlet->opHeads()[node->engineType().v()] = node; gLogInfo<<"\t Graphlet#"<<graphlets().size()<<" set opHead node: "<< node->name()<<" for type: "<<node->engineType().c_str() <<std::endl;
         }
     }
-    gLogInfo<<"graph splited by EMU ops to " << graphlets().size()<<"graphlets"<<std::endl;
+    gLogInfo<<"graph splited by EMU ops to " << graphlets().size()<<" graphlets"<<std::endl;
     return e;
 }
 
@@ -2156,11 +2158,11 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
     bool isEMUGraphlet = false;
 
     vector< Graphlet* >::iterator gli;
-    for ( gli = graphlets().begin(); gli != graphlets().end(); ++gli )
+    for ( gli = graphlets().begin(); gli != graphlets().end(); ++gli ) //处理每个段
     {
-        isEMUGraphlet = (*gli)->nodeList()[0]->isEMUEngineType();
-        NodeSequence& graphletNodes = (*gli)->nodeList();
-        for ( NodeSequenceIterator ni = graphletNodes.begin(); ni != graphletNodes.end(); ++ni )
+        isEMUGraphlet = (*gli)->nodeList()[0]->isEMUEngineType();//检查分段的op的engine type
+        NodeSequence& graphletNodes = (*gli)->nodeList(); //checkout出段包含的所有node
+        for ( NodeSequenceIterator ni = graphletNodes.begin(); ni != graphletNodes.end(); ++ni )//处理每个node
         {
             Node *node = *ni;
             if (isEMUGraphlet != node->isEMUEngineType())
@@ -2168,7 +2170,7 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
                 ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "All nodes in a graphlet should be either all CPU or all DLA");
             }
 
-            if (!node->isDLAEngineType() && !node->isEMUEngineType())
+            if (!node->isDLAEngineType() && !node->isEMUEngineType())//split和concat已经在上一个边界处理中处理掉没包含进任何段
             {
                 ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "Non-DLA and non-CPU nodes shouldn't be part of any graphlet");
             }
@@ -2181,7 +2183,7 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
         lastUsedAnnId = -1;
     }
 
-    /* Determine annotation node-id's of the producers/consumers for 1st batch(batch_id: 0)
+    /* Determine annotation node-id's of the producers/consumers for 1st batch(batch_id: 0)这个是为batch的dep做准备的， 默认都指向batch为-1，也就是第一个batch
      *  since from now on operations of all batches should possess unique annotation id's
      */
     for ( gli = graphlets().begin(); gli != graphlets().end(); ++gli )
@@ -2191,7 +2193,7 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
         {
             Node* node = *ni;
             for (size_t et = 0; et < EngineType::num_elements(); ++et)
-            {
+            {   gLogInfo<<"\tSet Node: "<< node->name()<<" with engine_type id: "<<et<<" based on batch annotationId" <<std::endl;
                 NvU32 firstBatchId = 0;
                 Node* consumer  = node->dependencyParams(firstBatchId).consumer(et).node();
                 NvS16 consAnnId = node->dependencyParams(firstBatchId).consumer(et).nodeAnnId();
@@ -2200,6 +2202,9 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
                 {
                     node->dependencyParams(firstBatchId).consumer(et).setNodeAnnId(consumer ?
                             consumer->dependencyParams(firstBatchId).annotationId() : -1);
+                    gLogInfo<<"\t\t consumer/AnnId: "<< 
+                    (node->dependencyParams(firstBatchId).consumer(et).node()?node->dependencyParams(firstBatchId).consumer(et).node()->name():"Nonename")<<": "
+                            <<(consumer ? consumer->dependencyParams(firstBatchId).annotationId() : -1)<< std::endl;
                 }
 
                 Node* producer  = node->dependencyParams(firstBatchId).producer(et).node();
@@ -2209,6 +2214,9 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
                 {
                     node->dependencyParams(firstBatchId).producer(et).setNodeAnnId(producer ?
                             producer->dependencyParams(firstBatchId).annotationId() : -1);
+                    gLogInfo<<"\t\t producer/AnnId: "<< 
+                    (node->dependencyParams(firstBatchId).producer(et).node()?node->dependencyParams(firstBatchId).producer(et).node()->name():"Nonename")<<": "
+                            <<(producer ? producer->dependencyParams(firstBatchId).annotationId() : -1)<< std::endl;
                 }
             }
         }

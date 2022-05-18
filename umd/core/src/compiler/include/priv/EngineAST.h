@@ -1162,7 +1162,7 @@ public:
         // init null initialized fused node array of fixed size
         m_fused_nodes = NodeSequence(IODirection::num_elements(), NULL); //in/out/unknown
 
-        // init null initialized producer and consumer arrays of fixed sizes
+        // init null initialized producer and consumer arrays of fixed sizes固定长度
         m_consumers = std::vector<BindNode>(EngineType::num_elements(), BindNode());
         m_producers = std::vector<BindNode>(EngineType::num_elements(), BindNode());
     }

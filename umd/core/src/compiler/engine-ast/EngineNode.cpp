@@ -117,7 +117,7 @@ fail:
 // get number of operations whose various events directly update the dependency count of this node
 NvU16 engine_ast::DependencyParams::getDependencyCount()
 {
-    NvU16 num_producers = 0;
+    NvU16 num_producers = 0;gLogInfo<<"[";
     for (size_t cc = 0; cc < EngineType::num_elements(); ++cc)
     {
         if (cc == EngineTypeEnum::CPU || cc == EngineTypeEnum::SPLIT || cc == EngineTypeEnum::CONCATENATION)
@@ -127,13 +127,13 @@ NvU16 engine_ast::DependencyParams::getDependencyCount()
         }
 
         if (producer(cc).nodeAnnId() != -1)
-        {
+        {   gLogInfo<<"<-"<<producer(cc).node()->name();
             num_producers++;
         }
     }
     // if a fused downstream op exists, then the combo is enabled in the reverse order -
     // thus the fused node becomes a signalling operation
-    num_producers += fusedNode(IODirectionEnum::OUTPUT) ? 1 : 0;
+    num_producers += fusedNode(IODirectionEnum::OUTPUT) ? 1 : 0;gLogInfo<<"~>"<<(fusedNode(IODirectionEnum::OUTPUT) ? fusedNode(IODirectionEnum::OUTPUT)->name():"no_fuse")<<"]";
     return num_producers;
 }
 
@@ -816,10 +816,10 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
             fusedNode = fusedNode->dependencyParams().fusedNode(IODirectionEnum::INPUT);
         }
 
-        if (!fusedNode) //bdma node
-        {
+        if (!fusedNode) //bdma node或者分支开始的两个方向
+        {   gLogInfo<<"Sep threads...";
             // no fusedNodes connect to currNode
-            //      currNode is the head of a new thread
+            //      currNode is the head of a new thread 
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(previous, next);
             NVDLA_UNUSED(DFSthreadsCompEdge);
             // if ( debugResolveDependencies() )
@@ -834,6 +834,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
         {   //如果是不相邻的两个同一个硬件的算子，那么他们就需要做内存的解决方案
             // if fusedNode and next are non-adjacent nodes with same engine type
             //      we need this edge for mem resolve
+            gLogInfo<<" non-adj but same type node...";
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(fusedNode, next);
             NVDLA_UNUSED(DFSthreadsCompEdge);
             // if ( debugResolveDependencies() )
@@ -1124,7 +1125,7 @@ NvDlaError engine_ast::Node::selfAnnotate(NvS16& lastUsedAnnId)
     NvU32 numBatches = graph()->profile()->multiBatchSize();
 
     for (NvU32 nn = 0; nn < numBatches; ++nn)
-    {
+    {   gLogInfo<<"\tSet node/AnnotationId based on batch: "<<name()<<"/"<<lastUsedAnnId<<std::endl;
         dependencyParams(nn).setAnnotationId(++lastUsedAnnId);
     }
 

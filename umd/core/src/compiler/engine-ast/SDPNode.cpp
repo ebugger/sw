@@ -809,7 +809,7 @@ fail:
    currentSDP Op is configured in X1.
    nextSDP Op is configured in X2.
    Removes nextSDP op node.
-   Mark currentSDP op node for removal.
+   Mark currentSDP op node for removal.bias+elt删除bias
 */
 engine_ast::Node* engine_ast::SDPNode::fuseSDPSubEngineOp(SDPNode* nextSDP)
 {

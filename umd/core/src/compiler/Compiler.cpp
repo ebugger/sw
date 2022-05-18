@@ -580,7 +580,8 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
     if ( !g.back() )
     {
         PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: fuseSubEngineOps");
-    } gLogInfo<<"-----------------------PASS: fuse SPD nodes(fuse elt with one of its source) to SPD super(X1+x2 engine)..completed ---------------------" << std::endl;
+    }
+    gLogInfo<<"-----------------------PASS: fuse SPD nodes(fuse elt with one of its source) to SPD super(X1+x2 engine)..completed ---------------------" << std::endl;
 
     g.push_back( boundGraph(g.back()) ); //没用？
     if ( !g.back() )
@@ -617,12 +618,12 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
             // g.back()->dumpGraphJson("eng_pre_debug_copy.json", "eng_pre_debug_copy");
         }
 
-        g.push_back( enableCopyOutDebugSurfaces( g.back() ) );
+        // g.push_back( enableCopyOutDebugSurfaces( g.back() ) );
 
-        if ( !g.back() )
-        {
-            PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: enableCopyOutDebugSurfaces");
-        }
+        // if ( !g.back() )
+        // {
+        //     PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: enableCopyOutDebugSurfaces");
+        // }
         engine_ast::Graph::printGraph(g.back(), true, "copyOutDebugSurfaces"); 
         if ( dumpPreCopyOutGraph )
         {
@@ -646,12 +647,12 @@ NvDlaError Compiler::compileInternal(Profile *profile, TargetConfig *target_conf
 
         engine_ast::NodeSequence topological_order;
 
-        g.push_back( generateDependencyParams(g.back(), topological_order) );
+       g.push_back( generateDependencyParams(g.back(), topological_order) );
         if ( !g.back() )
         {
             PROPAGATE_ERROR_FAIL(NvDlaError_InvalidState, "failed compilation phase: generateDependencyGraphState pass=%d", pass);
-        }
-
+        }engine_ast::Graph::printGraph(g.back(), true, "generateDependencyParams"); 
+        gLogInfo<<"-----------------------PASS: generateDependencyParams..completed ---------------------" << std::endl;
         g.push_back( resolveMemory(g.back(), topological_order) );
         if ( !g.back() )
         {
