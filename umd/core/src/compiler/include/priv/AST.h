@@ -1447,7 +1447,7 @@ public:
         return ok;
     }
 
-    bool adjacentNodes(Node *n1, Node *n2)
+    bool adjacentNodes(Node *n1, Node *n2) //任何类型的边都行
     {
         bool res = false;
         NodeAttr *n1_attr = fetchNodeAttr(n1);

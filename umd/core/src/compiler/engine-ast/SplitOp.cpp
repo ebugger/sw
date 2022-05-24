@@ -658,7 +658,7 @@ memory::TensorBufferDesc* engine_ast::SplitNode::suggestBuffer(surface::TensorSu
                              tsd->id().c_str());
     }
 
-    // hunt across all edges to find a common TBD if any was registered before
+    // hunt across all edges to find a common TBD if any was registered before 注意
     commonTBD = isSrcTSD ? tsd->tensorBufferDesc() : inputEdges()[0]->tensorBufferDesc();
     if ( !commonTBD )
     {

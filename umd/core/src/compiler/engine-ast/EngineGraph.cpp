@@ -884,6 +884,11 @@ void engine_ast::Graph::printGraph(engine_ast::Graph* g, bool nested, std::strin
                 Dims4 dims = (*ii)->tensorSurfaceDesc()->dimensions();
                 gLogInfo << "[" << dims.n << "x" << dims.c << "x" << dims.h << "x" << dims.w << "]";
                 gLogInfo << "[" << (*ii)->tensorSurfaceDesc()->id() << "]";
+                if((*ii)->tensorSurfaceDesc()->tensorBufferDesc())
+                {
+                    gLogInfo << "[" <<(*ii)->tensorSurfaceDesc()->tensorBufferDesc()->size() << "]";
+                    gLogInfo << "[" << (*ii)->tensorSurfaceDesc()->tensorBufferDesc()->id() << "]";                   
+                }
             }
             if ((*ii)->originalTensor())
             {
@@ -901,6 +906,11 @@ void engine_ast::Graph::printGraph(engine_ast::Graph* g, bool nested, std::strin
                 Dims4 dims = (*ii)->tensorSurfaceDesc()->dimensions();
                 gLogInfo << "[" << dims.n << "x" << dims.c << "x" << dims.h << "x" << dims.w << "]";
                 gLogInfo << "[" << (*ii)->tensorSurfaceDesc()->id() << "]";
+                if((*ii)->tensorSurfaceDesc()->tensorBufferDesc())
+                {
+                    gLogInfo << "[" <<(*ii)->tensorSurfaceDesc()->tensorBufferDesc()->size() << "]";
+                    gLogInfo << "[" << (*ii)->tensorSurfaceDesc()->tensorBufferDesc()->id() << "]";                   
+                }
             }
             if ((*ii)->originalTensor())
             {
@@ -1811,7 +1821,7 @@ fail:
     return e;
 }
 
-/*---------------------------------Topologically Sort这个过程是要处理分割的节点的， 所以和之前的处理scoreorder不同-----------*/
+/*---------------------------------Topologically Sort这个过程是要处理分割的节点的， 按照harzrad->compute->data顺序来的所以和之前的处理scoreorder不同-----------*/
 NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
 {
    /*
@@ -1819,7 +1829,7 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
     * Topological order is needed when there are potential diamond/fork/inception situations.
     */
 
-   /* This function comes up with a DF topological order.
+   /* This function comes up with a DF topological order.  深度优先搜索，吧从当前节点能走到节点入栈，然后每条支线分别一直走到父节点没被访问过
     * It pushes nodes that are reachable from the current node onto a stack,
     * and goes down on every thread until it reaches a node whose parents are not all visited
     *
@@ -1919,7 +1929,7 @@ NvDlaError engine_ast::Graph::topologicalSort(NodeSequence& topological_order)
             *           \   /
             *          (concat)
             * We need to make sure fused nodes are stick together,
-            * S1 needs to be popped off stack before C2 优先弹出， 只有弹出后才会处理当前这个节点， 比如设置成访问等..
+            * S1 needs to be popped off stack before C2   S1比S2优先弹出， 只有弹出后才会处理当前这个节点， 比如设置成访问等..
             */
 
             // push hazard edge children first, then compute edge children, then data edge children
@@ -2121,7 +2131,7 @@ NvDlaError engine_ast::Graph::determineTaskBoundaries(const NodeSequence& allNod
              * However a multi-op destination engine(s) is still not determined; so
              * keep that around in the graphlet/tasklet
              */
-            node->dependencyParams(/*batchId*/0).setAnnotationId(-1);gLogInfo<<"\tGraphlet#"<<graphlets().size()<<" reset annotation(-1) for "<< node->name()<<std::endl;
+            //node->dependencyParams(/*batchId*/0).setAnnotationId(-1);gLogInfo<<"\tGraphlet#"<<graphlets().size()<<" reset annotation(-1) for "<< node->name()<<std::endl;
         }
         else
         {
@@ -2193,30 +2203,34 @@ NvDlaError engine_ast::Graph::annotateNodes(NvS16& lastUsedAnnId)
         {
             Node* node = *ni;
             for (size_t et = 0; et < EngineType::num_elements(); ++et)
-            {   gLogInfo<<"\tSet Node: "<< node->name()<<" with engine_type id: "<<et<<" based on batch annotationId" <<std::endl;
+            {   
                 NvU32 firstBatchId = 0;
                 Node* consumer  = node->dependencyParams(firstBatchId).consumer(et).node();
                 NvS16 consAnnId = node->dependencyParams(firstBatchId).consumer(et).nodeAnnId();
+                Node* producer  = node->dependencyParams(firstBatchId).producer(et).node();
+                NvS16 prodAnnId = node->dependencyParams(firstBatchId).producer(et).nodeAnnId();
+
+                (consumer || producer) && gLogInfo<<"\tSet Node: "<< node->name()<<" dependency based on batch annotationId" <<std::endl;
                 /* populate iff not done before */
                 if (consAnnId == -1)
                 {
                     node->dependencyParams(firstBatchId).consumer(et).setNodeAnnId(consumer ?
                             consumer->dependencyParams(firstBatchId).annotationId() : -1);
-                    gLogInfo<<"\t\t consumer/AnnId: "<< 
-                    (node->dependencyParams(firstBatchId).consumer(et).node()?node->dependencyParams(firstBatchId).consumer(et).node()->name():"Nonename")<<": "
-                            <<(consumer ? consumer->dependencyParams(firstBatchId).annotationId() : -1)<< std::endl;
+                    consumer && gLogInfo<<"\t\t consumer/AnnId: "<< 
+                    node->dependencyParams(firstBatchId).consumer(et).node()->name()<<": "
+                            <<consumer->dependencyParams(firstBatchId).annotationId()<<" with engine: "
+                            <<consumer->engineType().c_str()<< std::endl;
                 }
 
-                Node* producer  = node->dependencyParams(firstBatchId).producer(et).node();
-                NvS16 prodAnnId = node->dependencyParams(firstBatchId).producer(et).nodeAnnId();
                 /* populate iff not done before */
                 if (prodAnnId == -1)
                 {
                     node->dependencyParams(firstBatchId).producer(et).setNodeAnnId(producer ?
                             producer->dependencyParams(firstBatchId).annotationId() : -1);
-                    gLogInfo<<"\t\t producer/AnnId: "<< 
-                    (node->dependencyParams(firstBatchId).producer(et).node()?node->dependencyParams(firstBatchId).producer(et).node()->name():"Nonename")<<": "
-                            <<(producer ? producer->dependencyParams(firstBatchId).annotationId() : -1)<< std::endl;
+                    producer && gLogInfo<<"\t\t producer/AnnId: "<< 
+                    node->dependencyParams(firstBatchId).producer(et).node()->name()<<": "
+                            <<producer->dependencyParams(firstBatchId).annotationId()<<" with engine: "
+                            <<producer->engineType().c_str()<< std::endl;
                 }
             }
         }

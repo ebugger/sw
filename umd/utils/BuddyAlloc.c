@@ -41,14 +41,14 @@
 
 #define GENERIC_MAX(x, y) ((x) > (y) ? (x) : (y))
 
-#if 0
+#if 1
 #define LOGD(...) \
     NvDlaDebugPrintf(__VA_ARGS__)
 #else
 #define LOGD(...)
 #endif
 
-#if 0
+#if 1
 #define LOGV(...) \
     NvDlaDebugPrintf(__VA_ARGS__)
 #else
@@ -250,7 +250,7 @@ static void borrowFromBuddy(NvDlaBuddyAllocInst* self, NvU8 level)
 {
     NvU32 blockBytesLevel = getBlockBytesFromLevel(self, level);
     NVDLA_UNUSED(blockBytesLevel);
-    LOGV("%uB block trying to borrow from buddy\n", blockBytesLevel);
+    //LOGV("%uB block trying to borrow from buddy\n", blockBytesLevel);
 
     if (level == 0)
     {
@@ -275,7 +275,7 @@ static void borrowFromBuddy(NvDlaBuddyAllocInst* self, NvU8 level)
 
     NvU32 blockBytesBuddyLevel = getBlockBytesFromLevel(self, buddyLevel);
     NVDLA_UNUSED(blockBytesBuddyLevel);
-    LOGV("%uB block borrowing from buddy %uB block\n", blockBytesLevel, blockBytesBuddyLevel);
+    //LOGV("%uB block borrowing from buddy %uB block\n", blockBytesLevel, blockBytesBuddyLevel);
 
     // Reference the free blocks
     NvDlaFreeBlock* freeBlock0 = self->freeHead[buddyLevel];
@@ -283,7 +283,7 @@ static void borrowFromBuddy(NvDlaBuddyAllocInst* self, NvU8 level)
 
     // Transform buddy address to binary tree representation
     NvU32 buddyAddr = (NvU32)((NvUPtr)self->freeHead[buddyLevel] - (NvUPtr)self->poolData);
-    LOGV("buddyAddr = 0x%x\n", buddyAddr);
+    //LOGV("buddyAddr = 0x%x\n", buddyAddr);
 
     NvU32 buddyIndex = getIndexFromAddrLevel(self, buddyAddr, buddyLevel);
 
@@ -322,7 +322,7 @@ static void borrowFromBuddy(NvDlaBuddyAllocInst* self, NvU8 level)
 
 static void* allocate(NvDlaBuddyAllocInst* self, NvU32 size)
 {
-    LOGV("NvDlaBuddyAlloc::allocate(%uB)\n", size);
+    //LOGV("NvDlaBuddyAlloc::allocate(%uB)\n", size);
 
     // Round numBytes up to the nearest power-of-two
     NvU8 allocNumBytesLog2 = log2i(size);

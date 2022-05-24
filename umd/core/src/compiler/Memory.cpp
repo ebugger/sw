@@ -157,7 +157,7 @@ NvDlaError Pool::allocate(TensorBufferDesc* bufferDesc, NvU16 batchId)
 
     if ( debug() )
     {
-        gLogInfo << "\t\t" << name() << " alloc " << bufferDesc->id() << " @" << poolOffset << " +" << allocSize << " loc=" << (int)location().v() << std::endl;
+        gLogInfo << "\t\t\t" << name() << " alloc " << bufferDesc->id() << " @" << poolOffset << " +" << allocSize << " loc=" << (int)location().v() << std::endl;
     }
 fail:
     return e;
@@ -393,7 +393,7 @@ NvDlaError memory::MemoryResolver::tryAllocInsidePool(engine_ast::Node* node,
     {
         selectedPool = 0;
         for ( size_t pi = 0; pi < tryPools.size(); ++pi )
-        {
+        {   gLogInfo<<"\t\t\t-trying allocate in: "<<tryPools[pi]->type().c_str()<<std::endl;
             // aux buffers are allocated once and shared among all batches
             if (isAUX && nn > 0)
             {
@@ -406,13 +406,13 @@ NvDlaError memory::MemoryResolver::tryAllocInsidePool(engine_ast::Node* node,
 
             // for non-aux buffers, attempt to allocate
             e = tryPools[pi]->allocate(tbd, /*batchId*/nn);
-            if ( m_debug )
+            if (e == NvDlaSuccess &&  m_debug )
             {
                 std::string tensorType = isAUX ? "AUX" :
                         (tsd->producers().find(node) != tsd->producers().end() ? "OUTPUT" : "INPUT");
-                gLogInfo << "[MEMTOOL] t = " << timestamp << "\t"
-                         << node->name() << "'s\t" << tensorType << "\t"
-                         << tbd->id() << "-B" << nn << red << "\tALLOC " << reset << endl;
+                gLogInfo << "\t\t\t[MEMTOOL] t = " << timestamp << "\t"<<green
+                         << node->name() <<reset<<"'s\t" <<yellow<< tensorType <<reset<< "\t"
+                         << tbd->id() << "-Batch#" << nn << red << "\tALLOC " << reset << endl;
                 timestamp++;
             }
 
@@ -450,7 +450,7 @@ NvDlaError memory::MemoryResolver::tryAllocInsidePool(engine_ast::Node* node,
         {
             if ( selectedPool == m_localSDRAM || selectedPool == m_localCVSRAM )
             {
-                m_inLocalPool.insert(tsd);
+                m_inLocalPool.insert(tsd);gLogInfo<<"\t\t\t\tPut tsd "<< tsd->id() <<" into local pool(SDRAM or CVSRAM)"<<std::endl;
             }
         }
         else
@@ -474,7 +474,7 @@ NvDlaError memory::MemoryResolver::tryAllocInsidePool(engine_ast::Node* node,
 
         if ( m_debug )
         {
-            gLogInfo << "\t\t\tplaced " << tbd->id() << " batch-" << nn << " inside " << selectedPool->name()
+            gLogInfo << "\t\t\tplaced " << tbd->id() << " batch-" << nn << " inside " <<red <<selectedPool->name()<<reset
                      << "@" << tbd->poolOffset(nn) << endl;
         }
 
@@ -528,8 +528,8 @@ NvDlaError memory::MemoryResolver::tryAllocOutsidePool(engine_ast::Node* node,
 
         if ( m_debug )
         {
-            gLogInfo << "\t\t\tplaced " << tsd->id() << "/" << tbd->id() << " batch-" << nn << " inside DRAM "
-                     << "@" << tbd->address<void*>(nn) << endl;
+            gLogInfo << "\t\t\tplaced " << tsd->id() << "/" << tbd->id() << " batch-" << nn << " inside DRAM(system) "
+                     << "@" << tbd->address<void*>(nn) <<" with size " << allocSize<< endl;
         }
     }
 
@@ -553,8 +553,8 @@ NvDlaError memory::MemoryResolver::resolveSurfacePlacement(engine_ast::Node *nod
 
     if ( m_debug )
     {
-        gLogInfo << "\t\tresolve placement/alloc for tsd=" << tsd->id() << "/" << tbd->id() <<
-            " aux=" << isAUX << " pooling=" << pooling << endl;
+        gLogInfo << "\t\t*resolve placement/alloc for tsd=" << tsd->id() << "/" << tbd->id() <<
+            " aux=" << isAUX << " pooling=" << pooling ;//<< endl;
     }
 
     if ( pooling )
@@ -577,9 +577,9 @@ NvDlaError memory::MemoryResolver::resolveSurfacePlacement(engine_ast::Node *nod
             if ( m_useCVSRAM && !emuDetected )
             {
                 // can't allow cvsram if EMU is involved.
-                tryPools.push_back(m_localCVSRAM);
-            }
-            tryPools.push_back(m_localSDRAM);
+                tryPools.push_back(m_localCVSRAM);gLogInfo<<"\t"<< m_localCVSRAM->type().c_str()<< " ";
+            }//else needed?
+            tryPools.push_back(m_localSDRAM);gLogInfo<<"\t"<< m_localSDRAM->type().c_str();
         }
 
         //
@@ -587,16 +587,16 @@ NvDlaError memory::MemoryResolver::resolveSurfacePlacement(engine_ast::Node *nod
         //
         if ( (tryPools.size() > 1) && !allowFallback )
         {
-            tryPools.erase( tryPools.begin()+1, tryPools.end() );
+            tryPools.erase( tryPools.begin()+1, tryPools.end() );gLogInfo<<"\t\t\t remove pool: "<<(*(tryPools.begin()+1))->type().c_str();
         }
-
+        gLogInfo<<std::endl;
         //
         // now try allocating buffers for all batches
         //
         PROPAGATE_ERROR_FAIL(tryAllocInsidePool(node, tsd, tbd, tryPools, isAUX, retry));
     }
     else
-    {
+    {   gLogInfo<<std::endl;
         PROPAGATE_ERROR_FAIL(tryAllocOutsidePool(node, tsd, tbd, isAUX));
     }
 
@@ -659,26 +659,39 @@ public:
             THROW_ERROR(NvDlaError_InvalidState, "check surface release on bogus op?");
         }
 
-        gLogInfo << "\t\t\tcheck surface release: " << surface->id() << " at node " << m_atNode->id() << endl;
+        gLogInfo << "\t\t\tcheck surface release: " << surface->id() << " at node " << m_atNode->name() << endl;
 
         const engine_ast::Graph::NodeUnorderedSet &consumers = surface->consumers();
         engine_ast::Graph::NodeUnorderedSet::const_iterator
             cbegin = consumers.begin(),
             cend = consumers.end(),
             ci;
-
+        std::string future_consumer_node;
         //
         // last scheduled reference is max of these.
-        //
+        // 这个时候会查当前edge所有的consumer的AnnID， 如果当前的节点还没跑到最大的那个，则说明这个在后面有依赖
         int lastRefId = -1;
         for ( ci = cbegin; ci != cend; ++ci )
-        {
-            lastRefId = std::max<int>(lastRefId, (*ci)->dependencyParams().annotationId());
+        {   
+            if((*ci)->isSoftwareNode())
+            {
+                for (size_t et = 0; et < engine_ast::EngineType::num_elements(); ++et) //10
+                {
+                    if ((*ci)->dependencyParams(0).consumer(et).node()) {
+                        lastRefId = std::max<int>(lastRefId,(*ci)->dependencyParams(0).consumer(et).node()->dependencyParams(0).annotationId());
+                        future_consumer_node = (*ci)->dependencyParams(0).consumer(et).node()->name();
+                    }
+                    //if (lastRefId >( *ci)->dependencyParams().annotationId()) future_consumer_node = (*ci)->name();    
+                }
+            }else{
+                if(lastRefId < (*ci)->dependencyParams().annotationId() ) future_consumer_node = (*ci)->name();
+                lastRefId = std::max<int>(lastRefId, (*ci)->dependencyParams().annotationId());
+            }
         }
 
         if ( lastRefId == -1 )
-        {
-            // gLogWarning << "detected a surface without any consumers?" << endl;
+        {   
+            gLogWarning << "\t\t\tdetected a surface w/o any consumers?" << endl;
             // don't free it, it's bogus but worst case it jams things up?
             return; // THROW_ERROR(NvDlaError_InvalidState, "detected a surface w/o any consumers?");
         }
@@ -705,7 +718,9 @@ public:
             }
 
             m_deallocable.push_back( memory::MemoryResolver::DeallocableSurface(lastRefId, surface) );
-        }
+            gLogWarning << "\t\t\t\tready to deallocate" << endl;
+
+        }else  gLogWarning << "\t\t\t\tsurface will be used in: "<<future_consumer_node<<" skip!" << endl;
 
     }
 
@@ -748,7 +763,7 @@ NvDlaError memory::MemoryResolver::placeSurfaceContent(engine_ast::Node *node,
     {
         if ( m_debug )
         {
-            gLogInfo << "\t\t\ttsd=" << tsd->id() << " set content pooled=" << (tbd->pool() ? true : false) << endl;
+            gLogInfo << "\t\t\t\tsd=" << tsd->id() << " set content pooled=" << (tbd->pool() ? true : false) << endl;
         }
 
         tsd->setContent( node->getAuxData(tsd->parentEdge()) );
@@ -867,7 +882,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
 
     vector<SurfacePair> collisions;
 
-    vector<AllocInfo> tryAllocs, retryAllocs;
+    vector<AllocInfo> tryAllocs, retryAllocs; //retryAllocs剩下的留给tryAllocs进入下一个pass
 
     vector< SurfaceList *> surfaceLists;
 
@@ -884,7 +899,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
     bool okToFree = false || m_useGreedyEviction;
     int numFreed = 0;
     bool allowFallback = false;
-
+    gLogInfo<<"Resolv mem loc for node: "<< node->name()<< std::endl;
     if ( !node )
     {
         ORIGINATE_ERROR_FAIL(NvDlaError_BadParameter, "invalid element");
@@ -894,7 +909,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
         // skip
         goto fail;
     }
-
+    
     //
     // setup orthogonal lists for input, output, in/out and aux surfaces
     //
@@ -912,7 +927,9 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
         {
             if ( std::find(outputSurfaces.begin(), outputSurfaces.end(), *isi) != outputSurfaces.end() )
             {
-                ioSurfaces.push_back(*isi);
+                ioSurfaces.push_back(*isi);gLogInfo<<"dectecte IO Surface: "
+                                                    <<(*((*isi)->producers().begin()))->name() << " <->"
+                                                    <<(*((*isi)->consumers().begin()))->name() <<std::endl;
             }
         }
         for ( SurfaceList::iterator iosi = ioSurfaces.begin(); iosi != ioSurfaces.end(); ++iosi)
@@ -932,7 +949,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
         gLogInfo << "] out=["; std::for_each(outputSurfaces.begin(), outputSurfaces.end(), PrintSurfaceIds());
         gLogInfo << "]" << endl;
 
-#if 0
+#if 1
         if ( m_inLocalPool.size() )
         {
             gLogInfo << "\t\tsurfaces in local pools=" << m_inLocalPool.size() << " [";
@@ -945,16 +962,16 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
 
 
     //
-    // run consistency checks and/or culling applicable to all surfaces
+    // run consistency checks and/or culling applicable to all surfaces在当前节点连接的所有tesnor中移除stream或者tdb已经被分配过的tsd
     //
     for ( size_t sli = 0, SLI = surfaceLists.size(); sli != SLI; ++sli )
     {
         SurfaceVector toRemove;
 
-        for ( SurfaceList::iterator si = surfaceLists[sli]->begin(); si != surfaceLists[sli]->end(); ++si )
+        for ( SurfaceList::iterator si = surfaceLists[sli]->begin(); si != surfaceLists[sli]->end(); ++si )//node相关的每一个tensor
         {
-            surface::TensorSurfaceDesc *tsd = *si;
-            memory::TensorBufferDesc *tbd = tsd->tensorBufferDesc();
+            surface::TensorSurfaceDesc *tsd = *si;//通过tsd
+            memory::TensorBufferDesc *tbd = tsd->tensorBufferDesc();//得到tbd
 
             if ( tsd->tensorCategory().e() == memory::TensorCategoryEnum::UNKNOWN_TENSOR )
             {
@@ -963,7 +980,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
 
             if ( tsd->tensorCategory().e() == memory::TensorCategoryEnum::STREAM_TENSOR )
             {
-                if ( m_debug ) { gLogInfo << "\t\ttsd=" << tsd->id() << " (stream tensor)" << endl; }
+                if ( m_debug ) { gLogInfo << "\t\ttsd=" << tsd->id() << " (stream tensor,skip!)" << endl; }
                 toRemove.push_back(tsd);
                 continue;
             }
@@ -974,7 +991,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
             }
 
             if ( tbd->allocated() )
-            {
+            {   if ( m_debug ) { gLogInfo << "\t\ttsd=" << tsd->id() << " (allocated in: "<<tbd->memoryLoc().c_str() << " ,skip)" << endl; }
                 toRemove.push_back(tsd);
             }
         }
@@ -987,7 +1004,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
 
 
     //
-    // prime the set of buffers which we (still) need to place.
+    // prime the set of buffers which we (still) need to place.设置预处理/分配空间的信息
     //
     for ( SurfaceList::iterator si = inputSurfaces.begin(); si != inputSurfaces.end(); ++si)
     {
@@ -1008,7 +1025,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
 
     //
     // find surfaces which can be freed.  note that the surfaces checked
-    // are only those which were allocated out of a local pool.
+    // are only those which were allocated out of a local pool. 在local里面然后查找哪些能释放
     //
     CATCH_ERROR_FAIL( std::for_each(m_inLocalPool.begin(), m_inLocalPool.end(), checkSurfaceRelease) );
 
@@ -1045,8 +1062,8 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
             //
             if ( m_debug )
             {
-                gLogInfo << "\t\t\tdeallocating " << tsd->id() << "/" << tbd->id()
-                         << "@" << tbd->address<void*>(0) << endl;
+                gLogInfo << red<<"\t\t\tDeALLOC " <<reset<< tsd->id() << "/" << tbd->id()
+                         << "@" << tbd->address<void*>(0) << " in "<< red << pool->type().c_str()<<reset<< endl;
             }
 
             PROPAGATE_ERROR_THROW( pool->deallocate(tbd) );
@@ -1069,7 +1086,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
         allowFallback = (deallocable.begin() == deallocable.end());
 
         //
-        // try allocs and record any need to retry
+        // try allocs and record any need to retry尝试为当前节点的每一个需要的边做申请空间
         //
         for ( size_t ti = 0, TI = tryAllocs.size(); ti != TI; ++ti )
         {
@@ -1094,7 +1111,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
             {
                 if ( e == NvDlaError_InsufficientMemory && retry )
                 {
-                    retryAllocs.push_back(ai);
+                    retryAllocs.push_back(ai); gLogInfo<< "\t\t\tWe need a retry "<<std::endl;
                 }
                 else
                 {
@@ -1124,7 +1141,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
         // keep going as long as we need mem and there's something which can be freed
         //
 
-    } while ( tryAllocs.size() && (deallocable.begin() != deallocable.end()) );
+    } while ( tryAllocs.size() && (deallocable.begin() != deallocable.end()) );//如果有能释放而且还有没分配的就继续跑
 
 
     if ( tryAllocs.size() )
@@ -1153,7 +1170,7 @@ NvDlaError memory::MemoryResolver::visitNode(Node *node)
 
     if ( m_debug )
     {
-        gLogInfo << "\tdone node=" << node->name() << " rc=" << (int)e << endl;
+        gLogInfo << "---mem resolver done for node=" << node->name() << " with return_code=" << (int)e <<" ---"<< endl;
     }
     return e;
 }

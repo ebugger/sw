@@ -813,12 +813,12 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
             {
                 break; //如果上述判断成功也就是两个节点有相互依赖， 一般是fusedNode的输出包含在next的输入
             }
-            fusedNode = fusedNode->dependencyParams().fusedNode(IODirectionEnum::INPUT);
-        }
+            fusedNode = fusedNode->dependencyParams().fusedNode(IODirectionEnum::INPUT);//不依赖的话找到节点向上的fused的节点然后继续和next匹配书否相邻
+        }                                                                               //如果上面没有fused的节点就跳到下面了分支了
 
         if (!fusedNode) //bdma node或者分支开始的两个方向
-        {   gLogInfo<<"Sep threads...";
-            // no fusedNodes connect to currNode
+        {   gLogInfo<<"Sep threads(no fused node connect to next node)...";
+            // no fusedNodes connect to currNode 没有上吸的节点和当前节点连接
             //      currNode is the head of a new thread 
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(previous, next);
             NVDLA_UNUSED(DFSthreadsCompEdge);
@@ -834,7 +834,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
         {   //如果是不相邻的两个同一个硬件的算子，那么他们就需要做内存的解决方案
             // if fusedNode and next are non-adjacent nodes with same engine type
             //      we need this edge for mem resolve
-            gLogInfo<<" non-adj but same type node...";
+            gLogWarning<<" non-adj but same type node...";//似乎不会走这个分支
             Edge* DFSthreadsCompEdge = graph()->addComputeEdge(fusedNode, next);
             NVDLA_UNUSED(DFSthreadsCompEdge);
             // if ( debugResolveDependencies() )
@@ -897,7 +897,7 @@ NvDlaError engine_ast::Node::resolveDataDependencies(engine_ast::Node* next)
             (next)->dependencyParams(/*batchId*/0).producer(producerType).setNode(previous);
             (next)->dependencyParams(/*batchId*/0).producer(producerType).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
         }else {
-            gLogInfo<< "\tnop process" <<std::endl;
+            gLogInfo<< "\tnop process("<<((!fusedNode)?"x":"f" )<<(graph()->adjacentNodes(previous,next)?"a":"x")<<(graph()->connectedDataNodes(previous, next)?"c":"x")<<")"<<std::endl;
         }
 
     }
@@ -971,9 +971,9 @@ NvDlaError engine_ast::Node::resolveComputeDependencies(const NodeSequence &orde
     {
         Node *other_node = *nin;    
         EngineType curr_eng_type = engineType();
-        /* Treat a directly connected or distant operation of same engineType as a consumer except for the software nodes. */
+        /* Treat a directly connected or distant operation of same engineType as a consumer except for the software nodes. 同类型的也算进consumer关系*/
         if (other_node->isEngineType(curr_eng_type))
-        {   gLogInfo<<"["<<name()<<"," <<other_node->name() <<"]"<<std::endl;
+        {   gLogInfo<<"["<<name()<<" -> " <<other_node->name() <<"]"<<curr_eng_type.c_str()<<std::endl;
             dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setNode(other_node);
             other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setNode(this);
             
@@ -983,13 +983,13 @@ NvDlaError engine_ast::Node::resolveComputeDependencies(const NodeSequence &orde
              */
             if ( graph()->adjacentNodes(this, other_node))
             {
-                if ( other_node->dependsOn(this, viaCompute, allowAll) ) //can start independently
-                {   gLogInfo<<"\tSet Compute dependency with OP_PROGRAMMED(independent) "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
+                if ( other_node->dependsOn(this, viaCompute, allowAll) ) //no data btw them,can start independently
+                {   gLogInfo<<"\tSet Compute dependency with OP_PROGRAMMED(independent) adj "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
                     dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
                     other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
                 }
-                else
-                {   gLogInfo<<"\tSet Compute dependency with OP_COMPLETED(dependent) "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
+                else//这种情况应该不会出现，因为之前处理过data的依赖关系了
+                {   gLogInfo<<"\tSet Compute dependency with OP_COMPLETED(dependent) adj" <<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
                     dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
                     other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
                 }
@@ -1001,8 +1001,8 @@ NvDlaError engine_ast::Node::resolveComputeDependencies(const NodeSequence &orde
                  * 2 adjacent nodes need different sub-engines (i.e. they are fused) -
                  * (ONLY happens when different types of SDP use different sub-engines)
                  * then the consumer can be programmed ASA producer is programmed.
-                 * But, it will be waiting on some other node to complete before executing.
-                 */gLogInfo<<"\tSet Compute dependency with OP_PROGRAMMED(independent) "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
+                 * But, it will be waiting on some other node to complete before executing. 同一类的算子下一个算子但是不相邻
+                 */gLogInfo<<"\tSet Compute dependency with OP_PROGRAMMED(independent) none-adj "<<name() <<" <-> "<<other_node->name()<< " "<< engineType().c_str()<<std::endl;
                 dependencyParams(/*batchId*/0).consumer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
                 other_node->dependencyParams(/*batchId*/0).producer( curr_eng_type.v() ).setOpEvent(OperationEventTypeEnum::OP_PROGRAMMED);
             }
@@ -1105,13 +1105,14 @@ NvDlaError engine_ast::Node::resolveSoftwareDependencies()
         prodToSwNode->dependencyParams(0).consumer(consEngType.v()).setOpEvent(consEvent);
         consOfSwNode->dependencyParams(0).producer(prodEngType.v()).setNode(prodToSwNode);
         consOfSwNode->dependencyParams(0).producer(prodEngType.v()).setOpEvent(prodEvent);
-
+        gLogInfo<<"\tSet dependency of 2 node before & after SW node: "<< name() << " "<< prodToSwNode->name()<<" <-> "<< consOfSwNode->name() << std::endl;
         // at the end, remove the existing software node from the dependency graph of
         // both its producer and consumer
         prodToSwNode->dependencyParams(0).consumer(this->engineType().v()).setNode(NULL);
         prodToSwNode->dependencyParams(0).consumer(this->engineType().v()).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
         consOfSwNode->dependencyParams(0).producer(this->engineType().v()).setNode(NULL);
         consOfSwNode->dependencyParams(0).producer(this->engineType().v()).setOpEvent(OperationEventTypeEnum::OP_COMPLETED);
+        gLogInfo<<"\t\tclear the dependencyParams of the SW node"<<std::endl;
     }
 
 fail:

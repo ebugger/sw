@@ -857,7 +857,7 @@ NvDlaError engine_ast::Edge::registerBuffer()
     consumers = tsd->consumers();
     clients.insert(producers.begin(), producers.end());
     clients.insert(consumers.begin(), consumers.end());
-    gLogInfo<<"Processing Edge TBD: "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
+    gLogInfo<<"Processing Edge TBD(edge_id): "<<id()<<"["<<tsd->dimensions().c<<","<<tsd->dimensions().h<<","<<tsd->dimensions().w<<"]"<<"/"
                                     <<originalTensor()->getName()<<"/"
                                     <<originalTensor()->tt_cstr()<<"/"
                                     <<tsd->surfaceFormat().category().c_str()<<", among its all "
@@ -877,7 +877,7 @@ NvDlaError engine_ast::Edge::registerBuffer()
         }
 
         // Step-1: If there's a software client, prefer its suggested TBD
-        //         don't bother querying the TBDs from non-software clients
+        //         don't bother querying the TBDs from non-software clients从上面split出来得到的tbd可以直接给这里用， 实际得到的是split的输入的tbd
         if (commonTBD)
         {
             tsd->setTensorBufferDesc(commonTBD);
@@ -911,7 +911,7 @@ NvDlaError engine_ast::Edge::registerBuffer()
     PROPAGATE_ERROR_FAIL( commonTBD->addSurface(tsd) );
     if ( graph()->debugBuffers() )
     {
-        //gLogInfo << commonTBD->id() << " for " << tsd->id() << " for " << id() << " with " << tsd->surfaceFormat().c_str() << endl;
+        gLogInfo << commonTBD->id() << " for " << tsd->id() << " for " << id() << " with " << tsd->surfaceFormat().c_str() << endl;
     }
 
 fail:
